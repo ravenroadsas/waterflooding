@@ -4,3 +4,4 @@
 rsconnect/
 data/uploads/
 .DS_Store
+data/*.sqlite

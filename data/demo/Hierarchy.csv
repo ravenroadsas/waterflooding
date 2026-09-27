@@ -1,4 +1,4 @@
-field,block,pattern,well,well_type,x,y
+Field,Area,Pattern,Well,Well_Type,X,Y
 Demo Field,North,P03,INJ-03,INJECTOR,500,2500
 Demo Field,North,P03,PRD-03,PRODUCER,0,2000
 Demo Field,North,P03,PRD-04,PRODUCER,0,3000

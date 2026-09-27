@@ -63,14 +63,24 @@ ed_fun <- function(p, swi) {
   f
 }
 
-# Fluid parameters for a sand, falling back to "*" row then built-in defaults.
-fluid_params <- function(fluids, sand) {
-  base <- c(list(bo = 1.2, mu_o = 5, swc = 0.2, sor = 0.3), fluid_defaults)
-  if (is.null(fluids) || !nrow(fluids)) return(base)
-  row <- fluids[fluids$sand == sand]
-  if (!nrow(row)) row <- fluids[fluids$sand %in% c("*", "ALL", "all", "default")]
-  if (!nrow(row)) return(base)
-  row <- as.list(row[1])
-  for (nm in names(base)) if (is.null(row[[nm]]) || is.na(row[[nm]])) row[[nm]] <- base[[nm]]
-  row
+# Relative-permeability / viscosity parameter list for one reservoir (v2 Fluids row).
+reservoir_params <- function(fluids, reservoir) {
+  d <- fluid_defaults
+  row <- if (!is.null(fluids)) fluids[fluids$reservoir == reservoir] else NULL
+  if (is.null(row) || !nrow(row)) row <- if (!is.null(fluids) && nrow(fluids)) fluids[1] else NULL
+  g <- function(nm) { v <- if (!is.null(row)) row[[nm]][1] else NA; if (is.null(v) || is.na(v)) d[[nm]] %||% NA_real_ else v }
+  list(bo = if (!is.null(row)) row$bo[1] else 1.2, bw = g("bw"), mu_o = g("visco"), mu_w = g("viscw"),
+       swc = g("swc"), sor = g("sor"), krw_or = g("krw"), kro_wc = g("kro"), nw = g("nw"), no = g("no"))
 }
+
+# Displacement efficiency implied by a producing water cut (reservoir conditions):
+# the Welge average saturation behind the front for the outlet saturation whose
+# fractional flow equals fw. Used for Evol(FF) in the conformance method 2.
+ed_from_fw <- function(p, swi, fw) {
+  cv <- welge_curve(p, swi)
+  post <- cv[fw > min(cv$fw) + 1e-6]
+  if (nrow(post) < 2) return(rep(NA_real_, length(fw)))
+  stats::approx(post$fw, post$ed, xout = pmin(pmax(fw, min(post$fw)), max(post$fw)), ties = "ordered")$y
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a

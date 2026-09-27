@@ -1,4 +1,4 @@
-# Regenerate the demo dataset: Rscript scripts/make_demo.R
+# Regenerate the demo dataset and the input template: Rscript scripts/make_demo.R
 suppressPackageStartupMessages(library(data.table))
 for (f in list.files("R", full.names = TRUE)) source(f)
 write_demo_data("data/demo")

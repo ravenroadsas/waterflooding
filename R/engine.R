@@ -1,257 +1,289 @@
-# Calculation engine ---------------------------------------------------------
+# Calculation engine (v2) --------------------------------------------------------
 #
-#   well monthly rates --(areal allocation, per month)--> pattern
-#                      --(kh split per well & sand)-----> pattern x sand
-#
-# Everything additive (stb, rb, cumulatives, STOOIP, pore volumes, ideal
-# recovery) is computed at pattern x sand level; ratios and dimensionless
-# variables are derived after aggregating to the requested level (pattern,
-# block, field) and sand selection so they are always volume-consistent.
+# Lineage (methodology section 7):
+#   Wells + Alloc                      -> PatternRates
+#   PatternRates + Vol + Fluids + Base -> PatternMaturity  (DWI, RF, Sec RF, DWP, DTP, Loss)
+#   PatternRates + Vol                 -> PatternVelocity  (TP, Prod TP, IWR, Utilization)
+#   InjSand + Alloc + Vol              -> PatternSandMetrics (unit DWI, unit TP, Cobb gap)
+#   Wells + Hierarchy                  -> WellHeterogeneity (HI oil / HI water)
+# Additive quantities are kept per pattern (and pattern x sand) so any level
+# (area, field) is aggregated first and ratios are derived afterwards.
 
-# 1. Well monthly volumes ------------------------------------------------------
-well_volumes <- function(prod) {
-  w <- prod[, .(bopd = sum(bopd), bwpd = sum(bwpd), bwipd = sum(bwipd)), by = .(well, date)]
+# 1. Well monthly volumes --------------------------------------------------------
+well_volumes <- function(w) {
+  w <- data.table::copy(w)
   w[, days := days_in_month(date)]
   w[, `:=`(oil = bopd * days, water = bwpd * days, winj = bwipd * days)]
   w[]
 }
 
-# 2. Allocation coefficient for every (pattern, well, month) --------------------
+# 2. Allocation coefficient for every (pattern, well, month) -----------------------
 # Undated rows are a constant baseline; dated rows hold until the next date.
-# Before the first dated value the baseline (or the first dated value) applies.
 expand_allocation <- function(alloc, wv) {
-  a <- data.table::copy(alloc)[, .(pattern, well, date, coefficient)]
+  a <- data.table::copy(alloc)[, .(pattern, well, date, coeff)]
   a[is.na(date), date := as.Date("1800-01-01")]
-  a <- a[, .(coefficient = coefficient[.N]), by = .(pattern, well, date)]
+  a <- a[, .(coeff = coeff[.N]), by = .(pattern, well, date)]
   data.table::setkey(a, pattern, well, date)
   pairs <- unique(a[, .(pattern, well)])
   grid <- merge(pairs, unique(wv[, .(well, date)]), by = "well", allow.cartesian = TRUE)
   out <- a[grid, on = .(pattern, well, date), roll = Inf, rollends = c(TRUE, TRUE)]
-  out[is.na(coefficient), coefficient := 0]
+  out[is.na(coeff), coeff := 0]
   out[]
 }
 
-# 3. Sand split for each (pattern, well): kh share among the pattern's sands,
-#    STOOIP share when the well has no petrophysics for those sands.
-sand_split <- function(pairs, stooip, petro) {
-  st <- stooip[, .(stooip = sum(stooip, na.rm = TRUE)), by = .(pattern, sand)]
-  cand <- merge(pairs, st, by = "pattern", allow.cartesian = TRUE)
-  if (!is.null(petro) && nrow(petro)) {
-    pe <- data.table::copy(petro)
-    pe[, kh := ifelse(is.na(permeability), net_pay, net_pay * permeability)]
-    # a well with partial perm data uses h only, for consistency
-    pe[, kh := if (anyNA(permeability)) net_pay else kh, by = well]
-    pe <- pe[, .(kh = sum(kh, na.rm = TRUE)), by = .(well, sand)]
-    cand[pe, on = .(well, sand), kh := i.kh]
-  } else {
-    cand[, kh := NA_real_]
-  }
-  cand[is.na(kh), kh := 0]
-  cand[, `:=`(khs = sum(kh), sts = sum(stooip)), by = .(pattern, well)]
-  cand[, method := ifelse(khs > 0, "kh", "stooip")]
-  cand[, frac := ifelse(khs > 0, kh / khs, ifelse(sts > 0, stooip / sts, 1 / .N)), by = .(pattern, well)]
-  cand[, .(pattern, well, sand, frac, method)]
-}
-
-# 4. Static properties per pattern x sand, joined with fluid data.
-pattern_sand_props <- function(stooip, fluids) {
-  s <- stooip[, .(stooip = sum(stooip, na.rm = TRUE),
-                  swi = stats::weighted.mean(swi, pmax(stooip, 1), na.rm = TRUE),
-                  boi = stats::weighted.mean(boi, pmax(stooip, 1), na.rm = TRUE),
-                  area = sum(area, na.rm = TRUE),
-                  net_pay = stats::weighted.mean(net_pay, pmax(stooip, 1), na.rm = TRUE),
-                  porosity = stats::weighted.mean(porosity, pmax(stooip, 1), na.rm = TRUE),
-                  permeability = stats::weighted.mean(permeability, pmax(stooip, 1), na.rm = TRUE)),
-              by = .(pattern, sand)]
-  fl <- data.table::rbindlist(lapply(unique(s$sand), function(sd) {
-    fp <- fluid_params(fluids, sd)
-    data.table::data.table(sand = sd, bo = fp$bo, bw = fp$bw, mu_o = fp$mu_o, mu_w = fp$mu_w, swc = fp$swc,
-                           sor = fp$sor, krw_or = fp$krw_or, kro_wc = fp$kro_wc, nw = fp$nw, no = fp$no)
+# 3. Static properties ------------------------------------------------------------
+sand_props <- function(vol, fluids) {
+  v <- data.table::copy(vol)
+  res <- unique(v$reservoir)
+  fl <- data.table::rbindlist(lapply(res, function(r) {
+    p <- reservoir_params(fluids, r)
+    data.table::data.table(reservoir = r, bo = p$bo, bw = p$bw, swc = p$swc, sor = p$sor, krw = p$krw_or,
+                           kro = p$kro_wc, nw = p$nw, no = p$no, mu_o = p$mu_o, mu_w = p$mu_w)
   }))
-  s <- merge(s, fl, by = "sand")
-  s[is.na(swi) | is.nan(swi), swi := swc]
-  s[is.na(boi) | is.nan(boi), boi := bo]
-  s[, hcpv := stooip * boi]
-  s[, pv := hcpv / (1 - swi)]
-  s[, mov := stooip * pmax(1 - swi - sor, 0) / (1 - swi)]
-  s[, mobility := (krw_or / mu_w) / (kro_wc / mu_o)]
-  s[, ed_max := pmax(1 - swi - sor, 0) / (1 - swi)]
-  s[]
+  v <- merge(v, fl, by = "reservoir", all.x = TRUE)
+  v[is.na(sw), sw := swc]
+  v[]
 }
 
-# 5. Run: builds the pattern x sand monthly table and pattern x well table.
-run_engine <- function(ds) {
-  wv <- well_volumes(ds$production)
+pattern_props <- function(sp) {
+  sp[, .(hcpv = sum(hcpv), stoiip = sum(stoiip),
+         bo = sum(hcpv * bo) / sum(hcpv), bw = sum(hcpv * bw) / sum(hcpv),
+         swi = sum(hcpv * sw) / sum(hcpv), n_sands = .N,
+         kh = if (all(is.na(k)) || all(is.na(h))) NA_real_ else sum(k * h, na.rm = TRUE)),
+     by = pattern][, boi := hcpv / stoiip][]
+}
+
+# 4. Baseline (secondary recovery) -------------------------------------------------
+pattern_baseline <- function(pm, baseline, method = "start") {
+  first_inj <- pm[winj > 0, .(first_inj = min(date)), by = pattern]
+  b <- merge(unique(pm[, .(pattern)]), first_inj, by = "pattern", all.x = TRUE)
+  if (!is.null(baseline) && nrow(baseline)) {
+    b <- merge(b, baseline[, .(pattern, wf_start, np_primary)], by = "pattern", all.x = TRUE)
+  } else b[, `:=`(wf_start = as.Date(NA), np_primary = NA_real_)]
+  b[, wf_start := data.table::fcoalesce(wf_start, first_inj)]
+  b[, method := method]
+  b[]
+}
+
+# 5. Run ----------------------------------------------------------------------------
+run_engine <- function(ds, st = default_settings, extra_protos = NULL) {
+  wv <- well_volumes(ds$wells)
   months <- sort(unique(wv$date))
-  al <- expand_allocation(ds$allocation, wv)
-  pairs <- unique(al[, .(pattern, well)])
-  split <- sand_split(pairs, ds$stooip, ds$petrophysics)
-  props <- pattern_sand_props(ds$stooip, ds$fluids)
+  al <- expand_allocation(ds$alloc, wv)
+  sp <- sand_props(ds$vol, ds$fluids)
+  pp <- pattern_props(sp)
 
-  # pattern x well monthly (allocated, all sands)
   pw <- merge(al, wv[, .(well, date, oil, water, winj)], by = c("well", "date"))
-  pw[, `:=`(oil = oil * coefficient, water = water * coefficient, winj = winj * coefficient)]
+  pw[, `:=`(oil = oil * coeff, water = water * coeff, winj = winj * coeff)]
 
-  # pattern x sand monthly
-  ps <- merge(pw[, .(pattern, well, date, oil, water, winj)], split[, .(pattern, well, sand, frac)],
-              by = c("pattern", "well"), allow.cartesian = TRUE)
-  ps <- ps[, .(oil = sum(oil * frac), water = sum(water * frac), winj = sum(winj * frac)), by = .(pattern, sand, date)]
+  pm <- pw[, .(oil = sum(oil), water = sum(water), winj = sum(winj)), by = .(pattern, date)]
+  grid <- data.table::CJ(pattern = pp$pattern, date = months)
+  pm <- pm[grid, on = .(pattern, date)]
+  for (v in c("oil", "water", "winj")) data.table::set(pm, which(is.na(pm[[v]])), v, 0)
+  pm <- merge(pm, pp[, .(pattern, hcpv, stoiip, bo, bw, boi)], by = "pattern")
+  data.table::setorder(pm, pattern, date)
+  pm[, days := days_in_month(date)]
+  pm[, `:=`(oil_rb = oil * bo, water_rb = water * bw, winj_rb = winj * bw)]
+  pm[, `:=`(cum_oil = cumsum(oil), cum_water = cumsum(water), cum_winj = cumsum(winj),
+            cum_oil_rb = cumsum(oil_rb), cum_water_rb = cumsum(water_rb), cum_winj_rb = cumsum(winj_rb)), by = pattern]
 
-  # complete grid so cumulatives are continuous
-  keys <- unique(props[, .(pattern, sand)])
-  grid <- keys[, .(date = months), by = .(pattern, sand)]
-  ps <- ps[grid, on = .(pattern, sand, date)]
-  for (v in c("oil", "water", "winj")) data.table::set(ps, which(is.na(ps[[v]])), v, 0)
-  ps <- merge(ps, props[, .(pattern, sand, stooip, boi, bo, bw, swi, hcpv, pv, mov, swc, sor, krw_or, kro_wc, nw, no, mu_o, mu_w)],
-              by = c("pattern", "sand"))
-  data.table::setorder(ps, pattern, sand, date)
-  ps[, `:=`(oil_rb = oil * bo, water_rb = water * bw, winj_rb = winj * bw)]
-  ps[, `:=`(cum_oil = cumsum(oil), cum_water = cumsum(water), cum_winj = cumsum(winj),
-            cum_oil_rb = cumsum(oil_rb), cum_water_rb = cumsum(water_rb), cum_winj_rb = cumsum(winj_rb)),
-     by = .(pattern, sand)]
-  # waterflood start and incremental (post-injection) oil
-  ps[, wf_started := cum_winj > 0]
-  ps[, np_start := {
-    i <- which(winj > 0)[1]
-    if (is.na(i)) NA_real_ else cum_oil[i] - oil[i]
-  }, by = .(pattern, sand)]
-  # incremental waterflood oil = production since flood start minus the primary
-  # decline extrapolated (exponential fit on the last 24 pre-injection months)
-  ps[, np_wf := {
-    i <- which(winj > 0)[1]
+  base <- pattern_baseline(pm, ds$baseline, st$baseline_method)
+  pm <- merge(pm, base[, .(pattern, wf_start, np_primary)], by = "pattern", all.x = TRUE)
+  data.table::setorder(pm, pattern, date)
+  pm[, flooding := !is.na(wf_start) & date >= wf_start]
+  pm[, sec_oil := {
+    i <- which(flooding)[1]
     if (is.na(i)) rep(0, .N) else {
-      base <- rep(0, .N)
-      pre <- max(1, i - 24):(i - 1)
-      pre <- pre[pre >= 1 & oil[pre] > 0]
-      if (i > 1 && length(pre) >= 6) {
-        fit <- stats::lm(log(oil[pre]) ~ pre)
-        d <- min(max(-stats::coef(fit)[2], 0), 0.1)
-        q0 <- exp(stats::predict(fit, data.frame(pre = i - 1)))
-        k <- seq_len(.N) - (i - 1)
-        base <- ifelse(k >= 1, q0 * exp(-d * k), 0)
+      np0 <- if (!is.na(np_primary[1])) np_primary[1] else if (i > 1) cum_oil[i - 1] else 0
+      base_cum <- rep(0, .N)
+      if (st$baseline_method == "decline" && i > 7) {
+        pre <- max(1, i - 24):(i - 1); pre <- pre[oil[pre] > 0]
+        if (length(pre) >= 6) {
+          fit <- stats::lm(log(oil[pre]) ~ pre)
+          d <- min(max(-stats::coef(fit)[2], 0), 0.1)
+          q0 <- exp(stats::predict(fit, data.frame(pre = i - 1)))
+          k <- seq_len(.N) - (i - 1)
+          base_cum <- cumsum(ifelse(k >= 1, q0 * exp(-d * k), 0))
+        }
       }
-      pmax(cum_oil - np_start - cumsum(base), 0) * wf_started
+      pmax(cum_oil - np0 - base_cum, 0) * flooding
     }
-  }, by = .(pattern, sand)]
-  # reservoir withdrawals since the waterflood started (for VRR since flood start)
-  ps[, wd_wf_rb := {
-    wd <- cumsum(oil_rb + water_rb)
-    i <- which(winj > 0)[1]
-    if (is.na(i)) rep(0, .N) else pmax(wd - (wd[i] - oil_rb[i] - water_rb[i]), 0) * wf_started
-  }, by = .(pattern, sand)]
-  ps[, hcpvi_ps := ifelse(hcpv > 0, cum_winj_rb / hcpv, 0)]
-  # ideal (100 % volumetric sweep) waterflood oil from Buckley-Leverett
-  ps[, ideal_np := {
-    p <- list(swc = swc[1], sor = sor[1], krw_or = krw_or[1], kro_wc = kro_wc[1], nw = nw[1], no = no[1],
-              mu_o = mu_o[1], mu_w = mu_w[1])
-    stooip[1] * ed_fun(p, swi[1])(hcpvi_ps) * boi[1] / bo[1]
-  }, by = .(pattern, sand)]
-  ps[, c("np_start", "hcpvi_ps") := NULL]
+  }, by = pattern]
+  pm[, sec_oil_rb := sec_oil * bo]
+  # reservoir withdrawals since the flood started (Loss = DWI - DTP on the same time basis)
+  pm[, wd_wf_rb := {
+    wd <- cumsum(oil_rb + water_rb); i <- which(flooding)[1]
+    if (is.na(i)) rep(0, .N) else pmax(wd - (if (i > 1) wd[i - 1] else 0), 0) * flooding
+  }, by = pattern]
 
-  h <- ds$hierarchy
-  pat_map <- if (!is.null(h)) unique(h[, .(pattern, block, field)], by = "pattern") else data.table::data.table(pattern = character(), block = character(), field = character())
-  miss <- setdiff(unique(props$pattern), pat_map$pattern)
-  if (length(miss)) pat_map <- rbind(pat_map, data.table::data.table(pattern = miss, block = "Unassigned", field = "Field"))
+  pat_map <- pattern_map(ds$hierarchy, pp$pattern)
+  protos <- prototype_table(ds$prototypes, extra_protos)
+  if (!nrow(protos)) protos <- analog_prototype(derive_metrics(data.table::copy(pm)[, entity := pattern], st), "Field analog (auto)", "auto")
+  protos <- rbind(protos, bl_prototype(sp), fill = TRUE)
+  assign <- prototype_assignment(ds$prototype_assign, protos, pp$pattern, st$prototype_override)
+  pm <- apply_prototypes(pm, assign, protos)
 
-  list(months = months, well = wv, alloc = al, pattern_well = pw, split = split, props = props,
-       ps = ps, pat_map = pat_map, wells = h)
+  units <- unit_injection(ds, wv, al, sp, months, st)
+  hi <- heterogeneity(wv, ds$hierarchy)
+
+  list(months = months, well = wv, alloc = al, pattern_well = pw, sand_props = sp, props = pp,
+       pm = pm, base = base, protos = protos, assign = assign, units = units, hi = hi,
+       pat_map = pat_map, wells = ds$hierarchy, ds = ds, settings = st)
 }
 
-# 6. Aggregate to a level and sand selection, then derive metrics ---------------
-additive_cols <- c("oil", "water", "winj", "oil_rb", "water_rb", "winj_rb", "cum_oil", "cum_water",
-                   "cum_winj", "cum_oil_rb", "cum_water_rb", "cum_winj_rb", "np_wf", "ideal_np", "wd_wf_rb")
-static_cols <- c("stooip", "hcpv", "pv", "mov")
+pattern_map <- function(h, patterns) {
+  pm <- if (!is.null(h)) unique(h[, .(pattern, area, field)], by = "pattern") else data.table::data.table(pattern = character(), area = character(), field = character())
+  miss <- setdiff(patterns, pm$pattern)
+  if (length(miss)) pm <- rbind(pm, data.table::data.table(pattern = miss, area = "Unassigned", field = "Field"))
+  pm[pattern %in% patterns]
+}
 
-entity_col <- function(level) switch(level, pattern = "pattern", block = "block", field = "field")
+# 6. Aggregation and derived metrics ---------------------------------------------------
+additive_cols <- c("oil", "water", "winj", "oil_rb", "water_rb", "winj_rb", "cum_oil", "cum_water", "cum_winj",
+                   "cum_oil_rb", "cum_water_rb", "cum_winj_rb", "sec_oil", "sec_oil_rb", "hcpv", "stoiip",
+                   "exp_sec_rb", "exp_dwp_rb", "exp_util_w", "exp_lwor_w", "flood_hcpv", "wd_wf_rb")
 
-aggregate_level <- function(res, level = "pattern", sands = NULL, entities = NULL) {
-  ps <- res$ps
-  if (length(sands)) ps <- ps[sand %in% sands]
-  ps <- merge(ps, res$pat_map, by = "pattern", all.x = TRUE)
-  ec <- entity_col(level)
-  ps[, entity := get(ec)]
-  if (length(entities)) ps <- ps[entity %in% entities]
-  ag <- ps[, c(lapply(.SD, sum), list(days = days_in_month(date[1]))), by = .(entity, date), .SDcols = c(additive_cols, static_cols)]
+entity_col <- function(level) switch(level, pattern = "pattern", area = "area", field = "field")
+
+aggregate_level <- function(res, level = "pattern", entities = NULL, areas = NULL, st = res$settings) {
+  pm <- merge(res$pm, res$pat_map, by = "pattern", all.x = TRUE)
+  if (length(areas)) pm <- pm[area %in% areas]
+  pm[, entity := get(entity_col(level))]
+  if (length(entities)) pm <- pm[entity %in% entities]
+  if (level == "pattern") {
+    ag <- pm
+  } else {
+    ag <- pm[, c(lapply(.SD, sum), list(days = days[1], wf_start = suppressWarnings(min(wf_start, na.rm = TRUE)))),
+             by = .(entity, date), .SDcols = additive_cols]
+  }
   data.table::setorder(ag, entity, date)
-  derive_metrics(ag)
+  derive_metrics(ag, st)
 }
 
-safe_div <- function(a, b) ifelse(is.finite(b) & b > 0, a / b, NA_real_)
+safe_div <- function(a, b) ifelse(is.finite(a) & is.finite(b) & b > 0, a / b, NA_real_)
 
-derive_metrics <- function(ag) {
+roll_sum <- function(x, n) data.table::frollsum(x, pmin(seq_along(x), n), adaptive = TRUE)
+
+derive_metrics <- function(ag, st = default_settings) {
+  ag <- data.table::copy(ag)
+  if (!"exp_sec_rb" %in% names(ag)) ag[, c("exp_sec_rb", "exp_dwp_rb", "exp_util_w", "exp_lwor_w", "flood_hcpv", "wd_wf_rb") := NA_real_]
   ag[, `:=`(
     qo = oil / days, qw = water / days, qwi = winj / days,
-    ql = (oil + water) / days,
-    wc = safe_div(water, oil + water),
-    wor = safe_div(water, oil),
-    vrr = safe_div(winj_rb, oil_rb + water_rb),
-    cum_vrr = safe_div(cum_winj_rb, cum_oil_rb + cum_water_rb),
-    vrr_wf = safe_div(cum_winj_rb, wd_wf_rb),
-    rf = safe_div(cum_oil, stooip),
-    rf_wf = safe_div(np_wf, stooip),
-    hcpvi = safe_div(cum_winj_rb, hcpv),
-    pvi = safe_div(cum_winj_rb, pv),
-    rf_ideal = safe_div(ideal_np, stooip),
-    ev = safe_div(np_wf, ideal_np),
-    mi = safe_div(cum_oil, mov),
-    inj_eff = safe_div(oil, winj),
-    wuf = safe_div(cum_winj, np_wf),
-    remaining = stooip - cum_oil,
-    remaining_mov = pmax(mov - cum_oil, 0)
+    wc = safe_div(water, oil + water), wor = safe_div(water, oil),
+    dwi = safe_div(cum_winj_rb, hcpv), rf = safe_div(cum_oil_rb, hcpv), sec_rf = safe_div(sec_oil_rb, hcpv),
+    dwp = safe_div(cum_water_rb, hcpv), dtp = safe_div(cum_oil_rb + cum_water_rb, hcpv),
+    iwr_cum = safe_div(cum_winj_rb, cum_oil_rb + cum_water_rb),
+    tp = 100 * safe_div(winj_rb, hcpv) * 365 / days,
+    prod_tp = 100 * safe_div(oil_rb + water_rb, hcpv) * 365 / days,
+    util_cum = safe_div(cum_winj_rb, sec_oil_rb)
   )]
-  ag[, ev := pmin(ev, 1.5)]
-  ag[cum_winj <= 0, `:=`(vrr = NA_real_, vrr_wf = NA_real_)]  # no flood yet
+  ag[, `:=`(dtp_wf = safe_div(wd_wf_rb, hcpv))]
+  ag[, loss := ifelse(dwi > 0, dwi - dtp_wf, NA_real_)]
+  ag[, `:=`(
+    tp12 = data.table::frollmean(tp, pmin(seq_len(.N), 12), adaptive = TRUE),
+    prod_tp12 = data.table::frollmean(prod_tp, pmin(seq_len(.N), 12), adaptive = TRUE),
+    iwr12 = safe_div(roll_sum(winj_rb, 12), roll_sum(oil_rb + water_rb, 12)),
+    iwr = safe_div(winj_rb, oil_rb + water_rb),
+    util3 = safe_div(roll_sum(winj_rb, 3), roll_sum(oil_rb, 3)),
+    util6 = safe_div(roll_sum(winj_rb, 6), roll_sum(oil_rb, 6)),
+    util12 = safe_div(roll_sum(winj_rb, 12), roll_sum(oil_rb, 12)),
+    wc6 = safe_div(roll_sum(water, 6), roll_sum(oil + water, 6)),
+    wor6 = safe_div(roll_sum(water, 6), roll_sum(oil, 6)),
+    qo6 = roll_sum(oil, 6) / roll_sum(days, 6)
+  ), by = entity]
+  ag[, tp12_ago := data.table::shift(tp12, 12), by = entity]
+  ag[, util := switch(as.character(st$util_window), "3" = util3, "12" = util12, util6)]
+  judge <- ag$dwi >= st$judge_dwi
+  ag[, `:=`(opr = ifelse(judge, safe_div(sec_oil_rb, exp_sec_rb), NA_real_),
+            wpr = ifelse(judge, safe_div(cum_water_rb, exp_dwp_rb), NA_real_),
+            exp_sec_rf = safe_div(exp_sec_rb, hcpv), exp_dwp = safe_div(exp_dwp_rb, hcpv),
+            exp_util = safe_div(exp_util_w, flood_hcpv), exp_wor = 10^safe_div(exp_lwor_w, flood_hcpv))]
+  ag[winj <= 0 & cum_winj <= 0, `:=`(iwr = NA_real_, iwr12 = NA_real_)]
   ag[]
 }
 
-# Snapshot of the entities at one month (last row <= asof).
 snapshot_at <- function(series, asof) {
   s <- series[date <= asof]
   s[, .SD[.N], by = entity]
 }
 
-# Theoretical recovery curve (ED vs HCPVI) for an aggregate, using STOOIP-weighted
-# pattern x sand properties.
-aggregate_props <- function(res, sands = NULL, patterns = NULL) {
-  pr <- res$props
-  if (length(sands)) pr <- pr[sand %in% sands]
-  if (length(patterns)) pr <- pr[pattern %in% patterns]
-  w <- pmax(pr$stooip, 1)
-  wm <- function(x) stats::weighted.mean(x, w)
-  list(swc = wm(pr$swc), sor = wm(pr$sor), krw_or = wm(pr$krw_or), kro_wc = wm(pr$kro_wc), nw = wm(pr$nw),
-       no = wm(pr$no), mu_o = wm(pr$mu_o), mu_w = wm(pr$mu_w), swi = wm(pr$swi), bo = wm(pr$bo), boi = wm(pr$boi),
-       bw = wm(pr$bw), stooip = sum(pr$stooip))
+# 7. Unit (sand) injection from InjSand ---------------------------------------------------
+unit_injection <- function(ds, wv, al, sp, months, st) {
+  inj <- wv[winj > 0, .(well, date, winj, days)]
+  if (!nrow(inj)) return(NULL)
+  shares <- NULL
+  if (!is.null(ds[["injsand"]]) && nrow(ds[["injsand"]])) {
+    prof <- ds[["injsand"]][, .(bwipd = sum(bwipd)), by = .(well, sand, pdate = date)]
+    prof[, share := bwipd / sum(bwipd), by = .(well, pdate)]
+    prof <- prof[is.finite(share)]
+    pd <- unique(prof[, .(well, pdate)])
+    pd[, date := pdate]
+    data.table::setkey(pd, well, date)
+    lk <- pd[inj[, .(well, date)], on = .(well, date), roll = Inf, rollends = c(TRUE, TRUE)]
+    lk <- lk[!is.na(pdate)]
+    shares <- merge(lk[, .(well, date, pdate)], prof[, .(well, pdate, sand, share)], by = c("well", "pdate"), allow.cartesian = TRUE)
+    shares[, method := "profile"]
+  }
+  # injectors without profile: HCPV share of the sands in their patterns
+  noprof <- setdiff(unique(inj$well), if (is.null(shares)) character() else unique(shares$well))
+  if (length(noprof)) {
+    wp <- unique(al[well %in% noprof & coeff > 0, .(well, pattern)])
+    hs <- merge(wp, sp[, .(pattern, sand, hcpv)], by = "pattern", allow.cartesian = TRUE)[, .(hcpv = sum(hcpv)), by = .(well, sand)]
+    hs[, share := hcpv / sum(hcpv), by = well]
+    fb <- merge(inj[well %in% noprof, .(well, date)], hs[, .(well, sand, share)], by = "well", allow.cartesian = TRUE)
+    fb[, `:=`(pdate = as.Date(NA), method = "hcpv")]
+    shares <- rbind(shares, fb, fill = TRUE)
+  }
+  ws <- merge(shares, inj, by = c("well", "date"))
+  ws[, winj_s := winj * share]
+
+  # valves and design rates, held until the next status date
+  if (!is.null(ds$injsand_status) && nrow(ds$injsand_status)) {
+    stt <- ds$injsand_status[, .(vrf = vrf[.N], cobb = cobb[.N]), by = .(well, sand, date)]
+    data.table::setkey(stt, well, sand, date)
+    ws <- stt[ws, on = .(well, sand, date), roll = Inf]
+  } else ws[, `:=`(vrf = NA_real_, cobb = NA_real_)]
+
+  # pattern x sand
+  ia <- al[well %in% unique(ws$well), .(pattern, well, date, coeff)]
+  pu <- merge(ia, ws[, .(well, date, sand, winj_s, cobb, method)], by = c("well", "date"), allow.cartesian = TRUE)
+  pu <- pu[, .(winj = sum(coeff * winj_s), cobb = sum(coeff * cobb, na.rm = TRUE),
+               has_cobb = any(!is.na(cobb)), assumed = any(method == "hcpv")), by = .(pattern, sand, date)]
+  g <- sp[, .(date = months), by = .(pattern, sand, reservoir, hcpv, bw, k, h)]
+  pu <- pu[g, on = .(pattern, sand, date)]
+  pu[is.na(winj), winj := 0]
+  pu[is.na(has_cobb), has_cobb := FALSE]
+  pu[, days := days_in_month(date)]
+  data.table::setorder(pu, pattern, sand, date)
+  pu[, `:=`(winj_rb = winj * bw, cum_winj = cumsum(winj)), by = .(pattern, sand)]
+  pu[, `:=`(cum_winj_rb = cumsum(winj_rb)), by = .(pattern, sand)]
+  pu[, `:=`(dwi = safe_div(cum_winj_rb, hcpv), tp = 100 * safe_div(winj_rb, hcpv) * 365 / days, rate = winj / days)]
+  pu[, tp12 := data.table::frollmean(tp, pmin(seq_len(.N), 12), adaptive = TRUE), by = .(pattern, sand)]
+  pu[, tp12_ago := data.table::shift(tp12, 12), by = .(pattern, sand)]
+  pu[, cobb := ifelse(has_cobb, cobb, NA_real_)]
+  list(well_sand = ws, pattern_sand = pu)
 }
 
-theoretical_curve <- function(res, sands = NULL, patterns = NULL) {
-  p <- aggregate_props(res, sands, patterns)
-  cv <- welge_curve(p, p$swi)
-  cv[, rf := ed * p$boi / p$bo]
-  cv[hcpvi <= 3]
+# Vertical conformance proxy: overlap of cumulative injection shares and HCPV shares.
+vertical_efficiency <- function(pu_snap) {
+  pu_snap[, .(ve = {
+    si <- if (sum(cum_winj_rb) > 0) cum_winj_rb / sum(cum_winj_rb) else rep(NA_real_, .N)
+    sh <- hcpv / sum(hcpv)
+    if (anyNA(si)) NA_real_ else sum(pmin(si, sh))
+  }, top_sand = sand[which.max(dwi)], top_dwi = max(dwi, na.rm = TRUE),
+  top_share = { s <- cum_winj_rb / sum(cum_winj_rb); s[which.max(dwi)] },
+  top_hcpv_share = (hcpv / sum(hcpv))[which.max(dwi)]), by = pattern]
 }
 
-# Pattern x sand metrics at one month (for the pattern x sand matrix).
-pattern_sand_snapshot <- function(res, asof, patterns = NULL) {
-  ps <- res$ps[date == max(date[date <= asof])]
-  if (length(patterns)) ps <- ps[pattern %in% patterns]
-  ag <- ps[, c(lapply(.SD, sum), list(days = days_in_month(date[1]))), by = .(pattern, sand, date),
-           .SDcols = c(additive_cols, static_cols)]
-  ag[, entity := pattern]
-  derive_metrics(ag)
-}
-
-# Wells of a pattern with coefficient and allocated cumulative volumes at asof.
-pattern_wells <- function(res, pat, asof) {
-  pw <- res$pattern_well[pattern == pat & date <= asof]
-  if (!nrow(pw)) return(data.table::data.table())
-  cur <- pw[, .SD[.N], by = well][, .(well, coefficient)]
-  tot <- pw[, .(cum_oil = sum(oil), cum_water = sum(water), cum_winj = sum(winj),
-                last_qo = sum(oil[date == max(date)]) / days_in_month(max(date)),
-                last_qwi = sum(winj[date == max(date)]) / days_in_month(max(date))), by = well]
-  out <- merge(cur, tot, by = "well")
-  if (!is.null(res$wells)) out <- merge(out, unique(res$wells[, .(well, well_type)], by = "well"), by = "well", all.x = TRUE)
-  wtot <- res$well[date <= asof, .(well_cum_oil = sum(oil), well_cum_winj = sum(winj)), by = well]
-  out <- merge(out, wtot, by = "well", all.x = TRUE)
-  data.table::setorder(out, well_type, well)
-  out[]
+# 8. Heterogeneity index (producers, cumulative, vs area average) -----------------------
+heterogeneity <- function(wv, h) {
+  if (is.null(h)) return(NULL)
+  prd <- unique(h[well_type == "PRODUCER", .(well, area)], by = "well")
+  w <- merge(wv[, .(well, date, oil, water)], prd, by = "well")
+  if (!nrow(w)) return(NULL)
+  data.table::setorder(w, well, date)
+  w[, `:=`(cum_oil = cumsum(oil), cum_water = cumsum(water)), by = well]
+  w[, `:=`(avg_oil = mean(cum_oil[cum_oil > 0]), avg_water = mean(cum_water[cum_water > 0])), by = .(area, date)]
+  w[, `:=`(hi_oil = safe_div(cum_oil, avg_oil) - 1, hi_water = safe_div(cum_water, avg_water) - 1)]
+  w[]
 }

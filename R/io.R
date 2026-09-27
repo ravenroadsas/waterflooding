@@ -71,6 +71,7 @@ standardize_table <- function(df, key) {
     out[[cs$name]] <- v
   }
   out[, .row := NULL]
+  out <- data.table::copy(out)
   # Drop rows missing any required key
   req_chr <- vapply(spec$cols, function(c) c$required && c$type != "num", logical(1))
   for (nm in vapply(spec$cols[req_chr], `[[`, "", "name")) {
@@ -128,9 +129,7 @@ build_dataset <- function(raw, name = "dataset") {
   issues <- list()
   for (k in names(wf_schema)) {
     if (is.null(raw[[k]])) {
-      issues[[length(issues) + 1]] <- new_issue(k, if (k %in% c("production", "allocation", "stooip")) "error" else "warning",
-                                                "Table not provided")
-      ds[[k]] <- NULL
+      if (k %in% required_tables) issues[[length(issues) + 1]] <- new_issue(k, "error", "Table not provided")
       next
     }
     st <- standardize_table(raw[[k]], k)
@@ -139,23 +138,44 @@ build_dataset <- function(raw, name = "dataset") {
   }
   ds <- fill_defaults(ds)
   ds$issues <- rbind(data.table::rbindlist(issues), validate_dataset(ds), fill = TRUE)
+  if (!nrow(ds$issues)) ds$issues <- data.table::data.table(table = character(), severity = character(), message = character())
   ds
 }
 
 fill_defaults <- function(ds) {
-  if (is.null(ds$hierarchy) && !is.null(ds$allocation)) {
-    ds$hierarchy <- unique(ds$allocation[, .(pattern, well)])
-    ds$hierarchy[, `:=`(field = NA_character_, block = NA_character_, well_type = NA_character_, x = NA_real_, y = NA_real_)]
+  if (!is.null(ds$wells)) {
+    w <- ds$wells
+    for (v in c("bopd", "bwpd", "bwipd")) data.table::set(w, which(is.na(w[[v]])), v, 0)
+    ds$wells <- w[, .(bopd = mean(bopd), bwpd = mean(bwpd), bwipd = mean(bwipd)), by = .(well, date)]
+  }
+  if (!is.null(ds$fluids)) {
+    f <- ds$fluids
+    for (nm in names(fluid_defaults)) data.table::set(f, which(is.na(f[[nm]])), nm, fluid_defaults[[nm]])
+    ds$fluids_relperm_given <- any(!is.na(ds$fluids$swc))
+  }
+  if (!is.null(ds$vol)) {
+    v <- ds$vol
+    v[is.na(reservoir) | reservoir == "", reservoir := "DEFAULT"]
+    # HCPV is authoritative; fall back to STOIIP x Bo when missing
+    if (!is.null(ds$fluids)) v[ds$fluids, on = "reservoir", bo_res := i.bo]
+    if (!"bo_res" %in% names(v)) v[, bo_res := NA_real_]
+    v[is.na(hcpv), hcpv := stoiip * data.table::fcoalesce(bo_res, 1.2)]
+    v[, bo_res := NULL]
+    v[, boi := ifelse(stoiip > 0, hcpv / stoiip, NA_real_)]
+  }
+  # hierarchy: from alloc when missing; well type inferred from volumes
+  if (is.null(ds$hierarchy) && !is.null(ds$alloc)) {
+    ds$hierarchy <- unique(ds$alloc[, .(pattern, well)])
+    ds$hierarchy[, `:=`(field = NA_character_, area = NA_character_, well_type = NA_character_, x = NA_real_, y = NA_real_)]
+    ds$hierarchy_inferred <- TRUE
   }
   if (!is.null(ds$hierarchy)) {
     h <- ds$hierarchy
     h[is.na(field) | field == "", field := "Field"]
-    h[is.na(block) | block == "", block := "Block 1"]
-    h[, well_type := toupper(substr(well_type, 1, 1))]
-    # Infer well type from production when missing
-    if (!is.null(ds$production) && any(is.na(h$well_type) | !h$well_type %in% c("P", "I"))) {
-      role <- ds$production[, .(inj = sum(bwipd, na.rm = TRUE), prd = sum(bopd + bwpd, na.rm = TRUE)), by = well]
-      role[, t := ifelse(inj > prd, "I", "P")]
+    h[is.na(area) | area == "", area := "Area 1"]
+    h[, well_type := toupper(substr(data.table::fcoalesce(well_type, ""), 1, 1))]
+    if (!is.null(ds$wells)) {
+      role <- ds$wells[, .(inj = sum(bwipd), prd = sum(bopd + bwpd)), by = well][, .(well, t = ifelse(inj > prd, "I", "P"))]
       h[role, on = "well", inferred := i.t]
       h[!well_type %in% c("P", "I"), well_type := data.table::fcoalesce(inferred, "P")]
       h[, inferred := NULL]
@@ -163,13 +183,12 @@ fill_defaults <- function(ds) {
     h[, well_type := ifelse(well_type == "I", "INJECTOR", "PRODUCER")]
     ds$hierarchy <- h
   }
-  if (!is.null(ds$production)) {
-    p <- ds$production
-    for (v in c("bopd", "bwpd", "bwipd")) data.table::set(p, which(is.na(p[[v]])), v, 0)
-  }
-  if (!is.null(ds$fluids)) {
-    f <- ds$fluids
-    for (nm in names(fluid_defaults)) data.table::set(f, which(is.na(f[[nm]])), nm, fluid_defaults[[nm]])
+  if (!is.null(ds$prototypes)) ds$prototypes[is.na(version) | version == "", version := "v1"]
+  if (!is.null(ds$prototype_assign)) ds$prototype_assign[is.na(version) | version == "", version := "v1"]
+  if (!is.null(ds$interventions)) {
+    ds$interventions[, type := toupper(trimws(type))]
+    ds$interventions[is.na(status) | status == "", status := "EXECUTED"]
+    ds$interventions[, status := toupper(status)]
   }
   ds
 }
@@ -177,62 +196,67 @@ fill_defaults <- function(ds) {
 validate_dataset <- function(ds) {
   I <- list()
   add <- function(t, s, m) I[[length(I) + 1]] <<- new_issue(t, s, m)
-  p <- ds$production; h <- ds$hierarchy; a <- ds$allocation; s <- ds$stooip
-  f <- ds$fluids; pe <- ds$petrophysics
-
-  if (!is.null(p) && nrow(p)) {
-    dup <- p[, .N, by = .(well, date)][N > 1]
-    if (nrow(dup)) add("production", "warning", sprintf("%d duplicated well-month rows (volumes summed)", nrow(dup)))
-    neg <- p[bopd < 0 | bwpd < 0 | bwipd < 0, .N]
-    if (neg) add("production", "error", sprintf("%d rows with negative rates", neg))
-    both <- p[bwipd > 0 & (bopd + bwpd) > 0, uniqueN(well)]
-    if (both) add("production", "info", sprintf("%d wells both produce and inject in the same month (conversions?)", both))
+  w <- ds$wells; a <- ds$alloc; v <- ds$vol; f <- ds$fluids; isd <- ds[["injsand"]]; st <- ds$injsand_status
+  if (!is.null(w) && nrow(w)) {
+    if (w[bopd < 0 | bwpd < 0 | bwipd < 0, .N]) add("wells", "error", "Negative rates found")
+    both <- w[bwipd > 0 & (bopd + bwpd) > 0, data.table::uniqueN(well)]
+    if (both) add("wells", "info", sprintf("%d wells both produce and inject in the same month (conversions?)", both))
   }
-  if (!is.null(p) && !is.null(a)) {
-    miss <- setdiff(unique(p$well), a$well)
-    if (length(miss)) add("allocation", "warning", sprintf("%d producing/injecting wells have no allocation (volumes not assigned to any pattern): %s",
-                                                           length(miss), paste(head(miss, 8), collapse = ", ")))
-    sums <- a[is.na(date), .(s = sum(coefficient)), by = well]
-    off <- sums[abs(s - 1) > 0.02]
-    if (nrow(off)) add("allocation", "warning", sprintf("%d wells whose coefficients do not add to 1 (e.g. %s = %.2f)",
-                                                       nrow(off), off$well[1], off$s[1]))
-    if (a[coefficient < 0 | coefficient > 1, .N]) add("allocation", "error", "Coefficients outside [0, 1]")
+  if (!is.null(w) && !is.null(a)) {
+    miss <- setdiff(unique(w$well), a$well)
+    if (length(miss)) add("alloc", "warning", sprintf("%d wells have no allocation (their volumes reach no pattern): %s",
+                                                     length(miss), paste(head(miss, 6), collapse = ", ")))
+    last <- a[, .(coeff = coeff[which.max(data.table::fcoalesce(date, as.Date("1800-01-01")))]), by = .(well, pattern)]
+    sums <- last[, .(s = sum(coeff)), by = well][abs(s - 1) > 0.02]
+    if (nrow(sums)) add("alloc", "warning", sprintf("%d wells whose latest coefficients do not add to 1 (e.g. %s = %.2f)",
+                                                  nrow(sums), sums$well[1], sums$s[1]))
+    if (a[coeff < 0 | coeff > 1, .N]) add("alloc", "error", "Coefficients outside [0, 1]")
   }
-  if (!is.null(a) && !is.null(s)) {
-    nost <- setdiff(unique(a$pattern), s$pattern)
-    if (length(nost)) add("stooip", "error", sprintf("Patterns with allocation but no STOOIP: %s", paste(head(nost, 8), collapse = ", ")))
-    noal <- setdiff(unique(s$pattern), a$pattern)
-    if (length(noal)) add("allocation", "info", sprintf("Patterns with STOOIP but no allocated wells: %s", paste(head(noal, 8), collapse = ", ")))
+  if (!is.null(a) && !is.null(v)) {
+    nov <- setdiff(unique(a$pattern), v$pattern)
+    if (length(nov)) add("vol", "error", sprintf("Patterns with allocation but no volumetrics: %s", paste(head(nov, 6), collapse = ", ")))
   }
-  if (!is.null(s)) {
-    if (s[is.na(stooip) | stooip <= 0, .N]) add("stooip", "warning", "Pattern/sand rows with missing or zero STOOIP")
-    if (!is.null(f) && !"*" %in% f$sand) {
-      nof <- setdiff(unique(s$sand), f$sand)
-      if (length(nof)) add("fluids", "warning", sprintf("Sands without fluid data (defaults used): %s", paste(nof, collapse = ", ")))
+  if (!is.null(v)) {
+    if (v[is.na(hcpv) | hcpv <= 0, .N]) add("vol", "warning", "Pattern/sand rows with missing or zero HCPV")
+    if (!is.null(f)) {
+      nof <- setdiff(unique(v$reservoir), f$reservoir)
+      if (length(nof) && !"DEFAULT" %in% f$reservoir) add("fluids", "warning", sprintf("Reservoirs without PVT (defaults used): %s", paste(nof, collapse = ", ")))
     }
   }
-  if (!is.null(pe) && !is.null(a)) {
-    nop <- setdiff(unique(a$well), pe$well)
-    if (length(nop)) add("petrophysics", "info", sprintf("%d wells without petrophysics: sand split falls back to STOOIP share", length(nop)))
+  if (!is.null(f) && !isTRUE(ds$fluids_relperm_given)) add("fluids", "info", "No relative permeability: default Corey set used for theoretical curves")
+  if (!is.null(isd)) {
+    bad <- setdiff(unique(isd$sand), v$sand)
+    if (length(bad)) add("injsand", "warning", sprintf("Sands in InjSand not found in Vol: %s", paste(bad, collapse = ", ")))
+    if (!is.null(w)) {
+      chk <- merge(isd[, .(prof = sum(bwipd)), by = .(well, date)], w[, .(well, date, bwipd)], by = c("well", "date"))
+      chk <- chk[bwipd > 0]
+      if (nrow(chk)) {
+        off <- chk[abs(prof / bwipd - 1) > 0.05, .N]
+        if (off) add("injsand", "info", sprintf("%d well-months where profile rates differ >5%% from Wells.BWIPD (shares are used)", off))
+      }
+      inj <- unique(w[bwipd > 0, well]); nopro <- setdiff(inj, isd$well)
+      if (length(nopro)) add("injsand", "warning", sprintf("%d injectors without a profile: split by HCPV (%s)", length(nopro), paste(head(nopro, 5), collapse = ", ")))
+    }
+  } else add("injsand", "warning", "No injection profiles: unit injection split by HCPV")
+  if (!is.null(st)) {
+    bad <- setdiff(unique(st$sand), v$sand)
+    if (length(bad)) add("injsand_status", "warning", sprintf("Sands not found in Vol: %s", paste(bad, collapse = ", ")))
   }
-  if (!is.null(h) && !is.null(p)) {
-    noh <- setdiff(unique(p$well), h$well)
-    if (length(noh)) add("hierarchy", "info", sprintf("%d wells not in hierarchy", length(noh)))
-  }
+  if (is.null(ds$prototypes)) add("prototypes", "info", "No prototype curves: an analog prototype is built from field data")
+  if (is.null(ds$baseline)) add("baseline", "info", "No baseline table: waterflood start = first injection month")
+  if (isTRUE(ds$hierarchy_inferred)) add("hierarchy", "info", "No hierarchy: one area, well types inferred, maps disabled")
   data.table::rbindlist(I)
 }
 
-# Blank Excel template with one sheet per table and a README sheet.
+# Excel template with one sheet per table and a README sheet.
 write_template <- function(path) {
-  sheets <- list()
-  readme <- list()
+  sheets <- list(); readme <- list()
   for (k in names(wf_schema)) {
     sp <- wf_schema[[k]]
     cols <- vapply(sp$cols, `[[`, "", "name")
-    df <- as.data.frame(stats::setNames(replicate(length(cols), character(), simplify = FALSE), cols))
-    sheets[[k]] <- df
+    sheets[[k]] <- as.data.frame(stats::setNames(replicate(length(cols), character(), simplify = FALSE), cols))
     for (c in sp$cols) readme[[length(readme) + 1]] <- data.frame(
-      sheet = k, column = c$name, required = c$required, unit = c$unit,
+      sheet = k, role = sp$role, column = c$name, required = c$required, unit = c$unit,
       accepted_aliases = paste(c$aliases, collapse = ", "), description = c$doc)
   }
   writexl::write_xlsx(c(list(README = do.call(rbind, readme)), sheets), path)
