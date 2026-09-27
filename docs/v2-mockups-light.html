@@ -1,0 +1,662 @@
+<title>FloodPulse v2 Light Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--paper:#eef1f5;--ink:#0f1a2a;--ink-2:#2d3b50;--muted:#5b687b;--rule:#d7dde6;--accent:#0b7285;
+ --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--cond:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.6 var(--sans)}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:32px 64px}
+header{margin-bottom:28px;display:grid;gap:10px}
+.eyebrow,.kicker{font:500 12px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,4vw,44px)/1.05 var(--cond);margin:0;text-wrap:balance}
+h2{font:600 clamp(22px,2.4vw,28px)/1.15 var(--cond);margin:4px 0 8px}
+p{margin:0 0 10px;max-width:76ch;color:var(--ink-2)}
+section{padding-bottom:36px;margin-bottom:36px;border-bottom:1px solid var(--rule)}
+section:last-child{border-bottom:0}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--ink-2)}
+.legend span.t{font:700 10px/1 var(--mono);letter-spacing:.08em;padding:4px 7px;border-radius:4px}
+.shot{overflow-x:auto;border-radius:12px;border:1px solid var(--rule);background:#f4f6fa;margin:14px 0 10px}
+code,.mono{font-family:var(--mono);font-size:.84em;background:#e3e8ef;padding:1px 5px;border-radius:4px}
+/* ---------- app mockups: fixed dark palette of the app (screenshots) ---------- */
+.shot{overflow-x:auto;border-radius:12px;border:1px solid var(--rule);background:#f4f6fa;margin:16px 0 10px}
+.scr{min-width:980px;background:#f4f6fa;color:#1e293b;font:11px/1.35 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;position:relative}
+.scr .nb{display:flex;align-items:center;gap:18px;padding:9px 14px;border-bottom:1px solid #e2e8f0;background:#ffffff}
+.scr .brand{font-weight:700;font-size:13px;color:#0f172a;display:flex;gap:6px;align-items:baseline}
+.scr .brand small{font-weight:500;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b}
+.scr .steps{display:flex;align-items:center;gap:2px}
+.scr .step{padding:5px 10px;border-radius:6px;color:#64748b;display:flex;align-items:center;gap:6px}
+.scr .step i{font-style:normal;display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid currentColor;font-size:8.5px;font-weight:700}
+.scr .step.on{color:#0c4a6e;background:#e0f2fe;box-shadow:inset 0 -2px 0 #0891b2}
+.scr .arr{color:#94a3b8;font-size:11px}
+.scr .nb .right{margin-left:auto;color:#64748b;display:flex;gap:14px}
+.scr .body{display:grid;grid-template-columns:172px minmax(0,1fr)}
+.scr .sb{border-right:1px solid #e2e8f0;padding:12px;display:grid;gap:9px;align-content:start;background:#f8fafc}
+.scr .sl{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;margin-bottom:3px}
+.scr .asof{background:linear-gradient(135deg,#ecfeff,#f0f9ff);border:1px solid #bae6fd;border-radius:9px;padding:8px 9px}
+.scr .asof b{display:block;font-size:17px;color:#0f172a}
+.scr .slider{height:3px;background:#e2e8f0;border-radius:3px;margin:8px 0 3px;position:relative}
+.scr .slider::before{content:"";position:absolute;left:0;top:0;bottom:0;width:92%;background:#0891b2;border-radius:3px}
+.scr .seg{display:flex;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden}
+.scr .seg span{flex:1;text-align:center;padding:3px 0;color:#64748b;font-size:9.5px}
+.scr .seg span.on{background:#cffafe;color:#0f172a}
+.scr .sel{border:1px solid #cbd5e1;border-radius:6px;padding:4px 7px;color:#334155;display:flex;justify-content:space-between;font-size:10px}
+.scr .chips{display:flex;flex-wrap:wrap;gap:4px}
+.scr .chip{border:1px solid #cbd5e1;border-radius:5px;padding:2px 6px;font-size:9.5px;color:#334155}
+.scr .chip.on{border-color:#0891b2;color:#0891b2;background:#cffafe}
+.scr .pills{display:grid;gap:4px}
+.scr .pill{display:flex;gap:6px;align-items:baseline;border:1px solid #e2e8f0;border-radius:6px;padding:3px 7px;font-size:9.5px;color:#64748b}
+.scr .pill b{font-size:13px;color:var(--pc)}
+.scr .main{padding:12px;display:grid;gap:10px;align-content:start}
+.scr .kpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.scr .kpi{background:linear-gradient(180deg,#ffffff,#ffffff);border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px}
+.scr .kpi .l{font-size:7.5px;letter-spacing:.12em;text-transform:uppercase;color:#64748b}
+.scr .kpi .v{font-size:14.5px;font-weight:700;color:#0f172a;margin-top:1px;white-space:nowrap}
+.scr .kpi .s{font-size:8.5px;color:#64748b;white-space:nowrap}
+.scr .g{display:grid;gap:10px}
+.scr .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.scr .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.scr .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.scr .g57{grid-template-columns:5fr 7fr}
+.scr .g75{grid-template-columns:7fr 5fr}
+.scr .card{background:#ffffff;border:1px solid #e2e8f0;border-radius:9px;overflow:hidden;min-width:0}
+.scr .ch{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid #e2e8f0}
+.scr .ch b{font-weight:600;font-size:10.5px;color:#0f172a}
+.scr .ch small{color:#64748b;font-size:8.5px}
+.scr .ch .sp{margin-left:auto}
+.scr .ch .ctl{border:1px solid #cbd5e1;border-radius:5px;padding:1px 6px;color:#334155;font-size:8.5px}
+.scr .tg{font:700 7.5px/1 system-ui,sans-serif;letter-spacing:.1em;padding:3px 5px;border-radius:3px}
+.scr .co{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:50%;background:#0f172a;color:#f4f6fa;font:700 9px/1 system-ui,sans-serif;flex:none}
+.scr .cb{padding:4px 6px 6px}
+.scr .cb.pad{padding:8px 10px}
+.scr .lg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:8.5px;color:#64748b;padding:0 4px 2px}
+.scr .lg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:-1px}
+.scr .lg i.sq{border-radius:1px}
+.scr .lg i.tri{width:0;height:0;border-radius:0;border-left:4.5px solid transparent;border-right:4.5px solid transparent;border-bottom:8px solid #64748b;background:none}
+.scr table{width:100%;border-collapse:collapse;font-size:9.5px}
+.scr th{color:#64748b;font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+.scr td{padding:4px 6px;border-top:1px solid #eef2f7;white-space:nowrap}
+.scr td.r,.scr th.r{text-align:right;font-variant-numeric:tabular-nums}
+.scr .bad{color:#dc2626} .scr .good{color:#059669} .scr .warn{color:#d97706} .scr .acc{color:#0891b2}
+.scr .badge{display:inline-block;padding:1px 6px;border-radius:999px;font-size:8.5px;font-weight:600;color:var(--bc);border:1px solid color-mix(in srgb,var(--bc) 45%,transparent);background:color-mix(in srgb,var(--bc) 12%,transparent)}
+.scr .carry{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:9.5px;color:#64748b}
+.scr .btn{border:1px solid #cbd5e1;border-radius:6px;padding:4px 9px;color:#334155;font-size:9.5px;display:inline-block}
+.scr .btn.pri{background:#0891b2;color:#062028;border-color:#0891b2;font-weight:700}
+.scr .btn.ghost{border-color:#0891b2;color:#0891b2}
+
+/* opportunities mock */
+.scr .funnel{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.scr .fs{background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 9px;position:relative}
+.scr .fs:not(:last-child)::after{content:"\203A";position:absolute;right:-7px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:14px}
+.scr .fs .l{font:500 8.5px/1.2 ui-monospace,Menlo,monospace;color:#64748b}
+.scr .fs b{font-size:17px;color:var(--fc)}
+.scr .fs.on{border-color:#0891b2;box-shadow:inset 0 0 0 1px #0891b2}
+.scr .tabs{display:flex;gap:14px;border-bottom:1px solid #e2e8f0;padding:0 2px}
+.scr .tabs span{padding:6px 0;color:#64748b;font-size:10px}
+.scr .tabs span.on{color:#0f172a;box-shadow:inset 0 -2px 0 #0891b2}
+.scr .orow{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:7px 9px;border-top:1px solid #eef2f7}
+.scr .orow.on{background:#e0f2fe;box-shadow:inset 3px 0 0 #0891b2}
+.scr .ot{display:grid;place-items:center;width:26px;height:26px;border-radius:6px;font-weight:800;font-size:12px;color:#ffffff;background:var(--tc)}
+.scr .on2{display:grid;gap:3px;min-width:0}
+.scr .on2 b{font-size:10.5px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scr .ev{display:flex;gap:3px;flex-wrap:wrap}
+.scr .ev span{font:600 8px/1 system-ui,sans-serif;padding:2px 4px;border-radius:3px;color:#94a3b8;border:1px solid #e2e8f0}
+.scr .ev span.y{color:#059669;border-color:#a7f3d0;background:#ecfdf5}
+.scr .ev span.q{color:#d97706;border-color:#fde68a;background:#fffbeb}
+.scr .osc{display:grid;gap:2px;justify-items:end}
+.scr .osc b{font-size:14px;color:#0f172a}
+.scr .osc small{font-size:8.5px;color:#64748b}
+.scr .dr{display:grid;gap:8px}
+.scr .drh{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.scr .drh h5{margin:0;font-size:13px;color:#0f172a}
+.scr .drs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.scr .blk{border:1px solid #e2e8f0;border-radius:7px;padding:6px 8px;background:#f8fafc}
+.scr .blk .l{font-size:7.5px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin-bottom:3px}
+.scr .blk p{margin:0;font-size:9.5px;line-height:1.4;color:#334155;max-width:none}
+.scr .blk ul{margin:0;padding-left:13px;font-size:9.5px;line-height:1.4;color:#334155}
+.scr .chk{list-style:none;padding-left:0 !important}
+.scr .chk li::before{content:"\2610  ";color:#64748b}
+.scr .chk li.done::before{content:"\2611  ";color:#059669}
+.scr .mini3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.scr .mini3 .card .ch{padding:4px 6px}
+
+/* pattern 360 mock */
+.scr.dim .ghostpage{filter:blur(1px);opacity:.35;pointer-events:none}
+.scr .drawer{position:absolute;top:0;right:0;bottom:0;width:74%;background:#f4f6fa;border-left:1px solid #cbd5e1;box-shadow:-18px 0 40px rgba(15,23,42,0.22);display:grid;grid-template-rows:auto auto auto 1fr;gap:8px;padding:12px 14px}
+.scr .crumb{display:flex;gap:6px;align-items:center;font-size:10px;color:#64748b;flex-wrap:wrap}
+.scr .crumb b{color:#0f172a;font-weight:600}
+.scr .crumb .cur{color:#0891b2}
+.scr .ptitle{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.scr .ptitle h5{margin:0;font-size:18px;color:#0f172a}
+
+
+.scr{box-shadow:0 1px 2px rgba(15,23,42,.06)} .scr .card{box-shadow:0 1px 2px rgba(15,23,42,.05)} .scr .kpi{background:#fff}
+
+/* notes under mockups */
+.notes{list-style:none;counter-reset:n;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 26px}
+.notes li{counter-increment:n;display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+.notes li::before{content:counter(n);display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#0f172a;color:#ffffff;font:700 11px/1 var(--sans);margin-top:1px}
+.notes li b{color:var(--ink);font-weight:600}
+@media (max-width:760px){.notes{grid-template-columns:minmax(0,1fr)}}
+.tagline{display:inline-flex;gap:6px;align-items:center;vertical-align:1px}
+
+
+.tg.keep{color:#475569;background:#eef2f7} .tg.ext{color:#b45309;background:#fef3c7} .tg.new{color:#0e7490;background:#cffafe}
+</style>
+<div class="wrap">
+<header><div class="eyebrow">FloodPulse v2 · screen mockups · light theme</div><h1>Light theme screens</h1>
+<p>The five v2 screens from the approved blueprint, redrawn on a light palette. Content, layout and numbered callouts are unchanged; semantic colours (oil, water, injection, warning, critical) are darkened for contrast on white. Demo-field values are illustrative.</p>
+<div class="legend"><span><span class="t" style="color:#475569;background:#eef2f7">KEEP</span> unchanged from v1</span><span><span class="t" style="color:#b45309;background:#fef3c7">EXTEND</span> v1 component, changed</span><span><span class="t" style="color:#0e7490;background:#cffafe">NEW</span> new in v2</span></div></header>
+<main><section id="maturity"><div class="kicker">Step 1</div><h2>1 · Pattern maturity</h2><p>Starts with Sec RF vs DWI, then separates inefficient water use, excess water and low oil response with the next three plots, then drills vertically by unit and checks spatially. Patterns that need a rate decision are carried to step 2.</p><div class="shot" role="img" aria-label="Mockup of the Maturity screen">
+          <div class="scr">
+            <div class="nb">
+              <div class="brand">FloodPulse <small>v2 · waterflood surveillance</small></div>
+              <div class="steps"><span class="step on"><i>1</i>Maturity</span><span class="arr">›</span><span class="step"><i>2</i>Process velocity</span><span class="arr">›</span><span class="step"><i>3</i>Opportunities</span></div>
+              <div class="right"><span>Data &amp; reference ▾</span></div>
+            </div>
+            <div class="body">
+              <aside class="sb">
+                <div class="asof"><div class="sl">As of</div><b>Aug 2026</b><div class="slider"></div><div class="sl" style="margin:0">▶ replay</div></div>
+                <div><div class="sl">Level</div><div class="seg"><span>Field</span><span>Area</span><span class="on">Pattern</span><span>Unit</span></div></div>
+                <div><div class="sl">Area · reservoir</div><div class="sel"><span>North</span><span>▾</span></div><div class="sel" style="margin-top:4px"><span>All reservoirs</span><span>▾</span></div></div>
+                <div><div class="sl">Units</div><div class="chips"><span class="chip on">A</span><span class="chip on">B</span><span class="chip on">C</span><span class="chip on">D</span><span class="chip on">E</span></div></div>
+                <div><div class="sl">Windows</div><div class="seg"><span>Util 3m</span><span class="on">6m</span><span>12m</span></div><div class="small" style="font-size:9px;color:#64748b;margin-top:3px">TP and IWR: 12 months</div></div>
+                <div><div class="sl">Prototype</div><div class="sel"><span>Assigned per pattern</span><span>▾</span></div></div>
+                <div class="pills"><div class="sl">Signals</div><div class="pill" style="--pc:#d97706"><b>14</b> screening</div><div class="pill" style="--pc:#0891b2"><b>9</b> candidates</div><div class="pill" style="--pc:#059669"><b>3</b> validated</div></div>
+              </aside>
+              <div class="main">
+                <div class="kpis" id="mat-kpis"></div>
+                <div class="g g75">
+                  <div class="card"><div class="ch"><span class="co">2</span><b>Sec RF vs DWI</b><small>prototype &amp; P10–P90 band</small><span class="sp"></span><span class="ctl">Trajectories</span><span class="tg ext">EXTEND</span></div><div class="cb"><div class="lg"><span><i style="background:#0d9488"></i>Util &lt;10</span><span><i style="background:#65a30d"></i>10–20</span><span><i style="background:#d97706"></i>20–35</span><span><i style="background:#dc2626"></i>&gt;35</span><span>size = IWR</span><span><i class="sq" style="background:#64748b"></i>pre-2005</span><span><i style="background:#64748b"></i>2005–15</span><span><i class="tri"></i>2016+</span></div><div id="c-secrf"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">3</span><b>OPR vs WPR</b><small>at equal DWI</small><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="c-oprwpr"></div></div></div>
+                </div>
+                <div class="g g3">
+                  <div class="card"><div class="ch"><span class="co">4</span><b>Utilization vs DWI</b><small>colour Inj TP · size IWR</small><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="c-util"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">5</span><b>WOR vs DWI</b><small>log scale</small><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="c-wor"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">6</span><b>DWI by unit</b><small>P02</small><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="c-units"></div><div class="lg"><span><i style="background:#3b82f6"></i>swept ≥1.2</span><span><i style="background:#0891b2"></i>moderate</span><span><i style="background:#059669"></i>under-swept &lt;0.5</span></div></div></div>
+                </div>
+                <div class="g g3">
+                  <div class="card"><div class="ch"><span class="co">7</span><b>Maturity map</b><small>DWI · all units</small><span class="sp"></span><span class="ctl">Unit ▾</span><span class="tg ext">EXTEND</span></div><div class="cb"><div id="c-matmap"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">8</span><b>Heterogeneity index</b><small>producers of P02, last 5 years</small><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="c-hi"></div></div></div>
+                  <div class="card"><div class="ch"><b>Life-cycle stage</b><small>by DWI</small><span class="sp"></span><span class="tg keep">KEEP</span></div><div class="cb pad" id="c-stage"></div></div>
+                </div>
+                <div class="card"><div class="ch"><span class="co">9</span><b>Maturity register</b><small>click a row for Pattern 360</small><span class="sp"></span><span class="tg ext">EXTEND</span></div>
+                  <div class="cb">
+                    <table>
+                      <thead><tr><th>Pattern</th><th>Stage</th><th class="r">DWI</th><th class="r">Sec RF</th><th class="r">OPR</th><th class="r">WPR</th><th class="r">Util 6m</th><th class="r">IWR</th><th class="r">WOR</th><th>Maturity reading</th><th>Next step</th></tr></thead>
+                      <tbody>
+                        <tr><td>P02</td><td><span class="badge" style="--bc:#d97706">Mature</span></td><td class="r">0.95</td><td class="r">11.5%</td><td class="r bad">0.55</td><td class="r bad">1.54</td><td class="r bad">38</td><td class="r">1.05</td><td class="r bad">6.8</td><td>Low oil, excess water for its DWI</td><td class="acc">→ velocity, conformance</td></tr>
+                        <tr><td>P12</td><td><span class="badge" style="--bc:#dc2626">Late life</span></td><td class="r">1.92</td><td class="r">21.3%</td><td class="r warn">0.78</td><td class="r warn">1.28</td><td class="r bad">74</td><td class="r">1.18</td><td class="r">46</td><td>Highest DWI in the area, water cycling</td><td class="acc">→ velocity, control</td></tr>
+                        <tr><td>P13</td><td><span class="badge" style="--bc:#d97706">Mature</span></td><td class="r">0.88</td><td class="r">20.2%</td><td class="r good">1.04</td><td class="r">0.95</td><td class="r good">11</td><td class="r bad">0.52</td><td class="r">0.9</td><td>On prototype; support lost recently</td><td class="acc">→ velocity, injectivity</td></tr>
+                        <tr><td>P04</td><td><span class="badge" style="--bc:#0d9488">Developing</span></td><td class="r">0.32</td><td class="r">11.9%</td><td class="r good">1.20</td><td class="r good">0.78</td><td class="r good">5</td><td class="r">1.12</td><td class="r">0.2</td><td>Efficient and immature</td><td class="acc">→ velocity, accelerate</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><ol class="notes">
+          <li><span><b>KPI ribbon</b> switches to methodology variables: HCPV, DWI, Sec RF, OPR, WPR, DTP and Loss, utilization for the chosen window, and remaining waterflood oil from the Simmons &amp; Falls fit.</span></li>
+          <li><span><b>Sec RF vs DWI</b> is the v1 maturity map re-based on the prototype, with the paper's encodings: colour = utilization, size = IWR, shape = start of flood. The grey band marks DWI below 0.15, where a pattern is too immature to judge. The Buckley-Leverett curve stays available as a reference layer.</span></li>
+          <li><span><b>OPR vs WPR</b> replaces the v1 HCPVI × sweep quadrant, with the four quadrants read as in the paper. Lower right (low oil, excess water) is the strongest inefficiency signal.</span></li>
+          <li><span><b>Utilization vs DWI</b> separates poor performance caused by maturity from genuinely inefficient water use, against the prototype's fill-up, pre-breakthrough and mature shape.</span></li>
+          <li><span><b>log WOR vs DWI</b> compares water at equal maturity, with a band for the rock type. The v1 WOR-vs-Np and Chan plots stay in Pattern 360.</span></li>
+          <li><span><b>DWI by unit</b> puts cumulative injection, HCPV and DWI side by side, so a unit with high injection because it is large is not mistaken for a swept unit.</span></li>
+          <li><span><b>Maturity map</b> reuses the v1 map with a unit selector: DWI by pattern, or by unit from InjSand.</span></li>
+          <li><span><b>HI trajectories</b> track each producer against the area average. Here PRD-02 drifts toward less oil and more water, which supports the P02 reading.</span></li>
+          <li><span><b>Register</b> keeps the v1 table with the new columns and a "next step" that carries each flagged pattern into Process velocity with its maturity reading.</span></li>
+        </ol></section>
+<section id="velocity"><div class="kicker">Step 2</div><h2>2 · Process velocity</h2><p>Checks speed against efficiency first, then the change in injectivity over a year, then balance, then overlays throughput on maturity by unit. The result is a rate diagnosis per pattern and unit: accelerate, control, restore injectivity, increase extraction or hold.</p><div class="shot" role="img" aria-label="Mockup of the Process velocity screen">
+          <div class="scr">
+            <div class="nb">
+              <div class="brand">FloodPulse <small>v2 · waterflood surveillance</small></div>
+              <div class="steps"><span class="step"><i>1</i>Maturity</span><span class="arr">›</span><span class="step on"><i>2</i>Process velocity</span><span class="arr">›</span><span class="step"><i>3</i>Opportunities</span></div>
+              <div class="right"><span>Data &amp; reference ▾</span></div>
+            </div>
+            <div class="body">
+              <aside class="sb">
+                <div class="asof"><div class="sl">As of</div><b>Aug 2026</b><div class="slider"></div><div class="sl" style="margin:0">▶ replay</div></div>
+                <div><div class="sl">Level</div><div class="seg"><span>Field</span><span>Area</span><span class="on">Pattern</span><span>Unit</span></div></div>
+                <div><div class="sl">Area · reservoir</div><div class="sel"><span>North</span><span>▾</span></div></div>
+                <div><div class="sl">Units</div><div class="chips"><span class="chip on">A</span><span class="chip on">B</span><span class="chip on">C</span><span class="chip on">D</span><span class="chip on">E</span></div></div>
+                <div><div class="sl">Target TP</div><div class="sel"><span>11.5 %HCPV/yr</span><span class="warn">LCI</span></div></div>
+                <div><div class="sl">IWR band</div><div class="sel"><span>0.8 – 1.2</span><span class="warn">LCI</span></div></div>
+                <div class="pills"><div class="sl">Carried from step 1</div><div class="pill" style="--pc:#0891b2"><b>7</b> patterns</div></div>
+              </aside>
+              <div class="main">
+                <div class="kpis" id="vel-kpis"></div>
+                <div class="g g3">
+                  <div class="card"><div class="ch"><span class="co">2</span><b>Utilization vs Inj TP</b><small>colour &amp; size IWR</small><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div class="lg"><span><i style="background:#dc2626"></i>IWR &lt;0.8</span><span><i style="background:#0d9488"></i>0.8–1.2</span><span><i style="background:#7c3aed"></i>&gt;1.2</span></div><div id="c-utiltp"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">3</span><b>Inj TP now vs 12 months ago</b><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="c-tp12"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">4</span><b>IWR vs utilization</b><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="c-iwr"></div></div></div>
+                </div>
+                <div class="g g3">
+                  <div class="card"><div class="ch"><span class="co">5</span><b>Pattern balance</b><small>Inj TP vs Prod TP</small><span class="sp"></span><span class="ctl">DWI vs DTP</span><span class="tg ext">EXTEND</span></div><div class="cb"><div id="c-bal"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">6</span><b>DWI + TP by unit</b><small>unit C</small><span class="sp"></span><span class="ctl">Unit C ▾</span><span class="tg new">NEW</span></div><div class="cb"><div id="c-velmap"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">7</span><b>Rate gap to target</b><small>bwipd</small><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb pad" id="c-gap"></div></div>
+                </div>
+                <div class="g g2">
+                  <div class="card"><div class="ch"><span class="co">8</span><b>Inj TP by unit</b><small>area North, vs target</small><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="c-tphist"></div></div></div>
+                  <div class="card"><div class="ch"><span class="co">9</span><b>Pulse board</b><small>IWR, last 36 months</small><span class="sp"></span><span class="ctl">IWR ▾</span><span class="tg keep">KEEP</span></div><div class="cb"><div id="c-pulse"></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><ol class="notes">
+          <li><span><b>KPI ribbon</b>: injection and production TP over 12 months, IWR, utilization, change in TP over a year, rate gap to target, and counts of under- and over-balanced patterns.</span></li>
+          <li><span><b>Utilization vs Inj TP</b>: low utilization with TP below target means room to accelerate (P04); high utilization with high TP means water cycling that needs control (P12).</span></li>
+          <li><span><b>TP now vs 12 months ago</b> with the 1:1 line and ±25 % bands. P13 lost 62 % of its throughput in a year.</span></li>
+          <li><span><b>IWR vs utilization</b> with the 0.8 and 1.2 screening bands. Over-balance with low utilization (P07) points to extraction limits; very low IWR (P13, P10) to depletion risk.</span></li>
+          <li><span><b>Balance</b> extends the v1 voidage chart: Inj TP vs Prod TP per pattern, with a toggle to DWI vs DTP (the difference is Loss). The field voidage history stays below it.</span></li>
+          <li><span><b>DWI + TP by unit</b>: DWI as the background (green low, blue high), injector bubbles coloured by unit TP, as in SPE-190314 figure 19. High DWI with high TP is a control zone; low DWI with low TP is an acceleration zone.</span></li>
+          <li><span><b>Rate gap</b>: current injection vs the rate implied by the target TP for each pattern or unit, as an actionable number in bwipd.</span></li>
+          <li><span><b>TP by unit over time</b> against the target shows persistent low-injectivity units (D and E here) and sudden restrictions.</span></li>
+          <li><span><b>Pulse board</b> from v1 gains TP, IWR and utilization as metrics. The v1 production &amp; injection chart and the exception feed sit below, and the feed now lists screening signals that go to step 3.</span></li>
+        </ol></section>
+<section id="opportunities"><div class="kicker">Step 3</div><h2>3 · Opportunities</h2><p>Each candidate is a decision record that follows the evidence contract in section 8 of the methodology. The app computes the evidence; an engineer confirms the validation items and moves the status forward. A signal from a single plot never gets past <span class="mono">screening_only</span>.</p><div class="shot" role="img" aria-label="Mockup of the Opportunities screen">
+          <div class="scr">
+            <div class="nb">
+              <div class="brand">FloodPulse <small>v2 · waterflood surveillance</small></div>
+              <div class="steps"><span class="step"><i>1</i>Maturity</span><span class="arr">›</span><span class="step"><i>2</i>Process velocity</span><span class="arr">›</span><span class="step on"><i>3</i>Opportunities</span></div>
+              <div class="right"><span>Data &amp; reference ▾</span></div>
+            </div>
+            <div class="body">
+              <aside class="sb">
+                <div class="asof"><div class="sl">As of</div><b>Aug 2026</b><div class="slider"></div></div>
+                <div><div class="sl">Type</div><div class="chips"><span class="chip on">A</span><span class="chip on">B</span><span class="chip on">C</span><span class="chip on">D</span><span class="chip on">E</span><span class="chip on">F</span></div></div>
+                <div><div class="sl">Area</div><div class="sel"><span>All areas</span><span>▾</span></div></div>
+                <div><div class="sl">Min. evidence</div><div class="seg"><span>1</span><span class="on">2</span><span>3</span><span>4+</span></div></div>
+                <div><div class="sl">Rank by</div><div class="sel"><span>Priority score</span><span>▾</span></div></div>
+                <div class="pills"><div class="sl">Evidence families</div><div class="pill" style="--pc:#059669"><b>M</b> maturity</div><div class="pill" style="--pc:#059669"><b>V</b> velocity</div><div class="pill" style="--pc:#059669"><b>U</b> unit / vertical</div><div class="pill" style="--pc:#059669"><b>S</b> spatial</div><div class="pill" style="--pc:#059669"><b>O</b> operations</div></div>
+              </aside>
+              <div class="main">
+                <div class="funnel">
+                  <div class="fs" style="--fc:#d97706"><div class="l">screening_only</div><b>14</b></div>
+                  <div class="fs on" style="--fc:#0891b2"><div class="l">candidate</div><b>9</b></div>
+                  <div class="fs" style="--fc:#059669"><div class="l">validated_candidate</div><b>3</b></div>
+                  <div class="fs" style="--fc:#7c3aed"><div class="l">executed</div><b>2</b></div>
+                  <div class="fs" style="--fc:#334155"><div class="l">outcome_evaluated</div><b>1</b></div>
+                </div>
+                <div class="tabs"><span class="on">Candidates</span><span>Board</span><span>Conformance ranking</span><span>Interventions &amp; outcomes</span><span>Rules &amp; weights</span></div>
+                <div class="g g57">
+                  <div class="card"><div class="ch"><span class="co">2</span><b>Ranked candidates</b><small>9 · evidence ≥ 2 families</small><span class="sp"></span><span class="tg new">NEW</span></div>
+                    <div id="o-list"></div>
+                  </div>
+                  <div class="card"><div class="ch"><span class="co">3</span><b>Decision record</b><span class="sp"></span><span class="tg new">NEW</span></div>
+                    <div class="cb pad dr">
+                      <div class="drh"><span class="ot" style="--tc:#dc2626;width:22px;height:22px;display:inline-grid;place-items:center;border-radius:5px;font-weight:800;color:#0f172a;background:#dc2626">E</span><h5>Conformance · P02 · INJ-02 · unit A</h5><span class="badge" style="--bc:#0891b2">candidate</span><span class="badge" style="--bc:#d97706">evidence: 4 of 5 families</span><span style="color:#64748b;font-size:9px">detected Aug 2026</span></div>
+                      <div class="mini3">
+                        <div class="card"><div class="ch"><span class="co">4</span><b>Sec RF vs DWI</b></div><div id="o-m1"></div></div>
+                        <div class="card"><div class="ch"><b>Util vs Inj TP</b></div><div id="o-m2"></div></div>
+                        <div class="card"><div class="ch"><b>Vol. efficiency vs Loss</b></div><div id="o-m3"></div></div>
+                      </div>
+                      <div class="drs">
+                        <div class="blk"><div class="l">Maturity evidence</div><p>OPR 0.55: Sec RF 11.5 % against 20.9 % expected at DWI 0.95. WPR 1.54. Utilization 38, 2.2 times the prototype at this DWI.</p></div>
+                        <div class="blk"><div class="l">Velocity evidence</div><p>Inj TP 11.9 %/yr (target 11.5). IWR 1.05, so the pattern is balanced: this is not a rate problem.</p></div>
+                        <div class="blk"><div class="l">Vertical evidence</div><p>Unit A: DWI 2.09 against 0.95 for the pattern; 59 % of injection enters 27 % of HCPV. Last profile Mar 2026.</p></div>
+                        <div class="blk"><div class="l">Spatial evidence</div><p>PRD-02 water cut 97 % (area 88 %); HI trajectory toward less oil, more water since 2023. Loss 0.05: water stays in the pattern.</p></div>
+                        <div class="blk"><div class="l">Suspected mechanism</div><p>High-permeability streak in unit A between INJ-02 and PRD-02 recycling water.</p></div>
+                        <div class="blk"><div class="l">Alternative explanations</div><ul><li>PRD-02 allocation coefficient overstates its water in P02</li><li>Injection out of zone behind casing in INJ-02</li><li>Prototype not representative of unit A rock</li></ul></div>
+                        <div class="blk"><div class="l">Validation before execution</div><ul class="chk"><li>New injection profile in INJ-02</li><li>Check PRD-02 allocation in P01/P03</li><li>Casing integrity log</li><li>Remaining reserves in unit A</li></ul></div>
+                        <div class="blk"><div class="l">Action · expected response</div><p>Restrict unit A in INJ-02 (mandrel 1) and redirect to units D–E. Expect utilization below 20 and WOR down 25 % within 3–6 months, with the OPR trajectory turning up.</p></div>
+                      </div>
+                      <div class="card"><div class="ch"><span class="co">5</span><b>OpportunityEvidence</b><small>stored with the record</small></div>
+                        <div class="cb"><table>
+                          <thead><tr><th>Metric</th><th class="r">Value</th><th class="r">Reference</th><th>Unit</th><th>Comment</th></tr></thead>
+                          <tbody>
+                            <tr><td>OPR</td><td class="r bad">0.55</td><td class="r">1.00</td><td>–</td><td>prototype LCI-North v3 @ DWI 0.95</td></tr>
+                            <tr><td>WPR</td><td class="r bad">1.54</td><td class="r">1.00</td><td>–</td><td>DWP 0.79 vs 0.51 expected</td></tr>
+                            <tr><td>Util (6 m)</td><td class="r bad">38</td><td class="r">17</td><td>rb/rb</td><td>prototype at same DWI</td></tr>
+                            <tr><td>Injection share, unit A</td><td class="r bad">59%</td><td class="r">27%</td><td>%</td><td>HCPV share of unit A</td></tr>
+                            <tr><td>Evol(MB)/Evol(FF)</td><td class="r bad">0.33</td><td class="r">0.80</td><td>–</td><td>thief-zone quadrant, Loss 0.05</td></tr>
+                          </tbody>
+                        </table></div>
+                      </div>
+                      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="co" style="display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:50%;background:#0f172a;color:#f4f6fa;font:700 9px/1 system-ui">6</span><span class="btn pri">Mark validated</span><span class="btn ghost">Log intervention</span><span class="btn">Dismiss with reason</span><span class="btn">Export record</span><span style="color:#64748b;font-size:9px;margin-left:auto">Oil at stake: 2.9 MMstb movable; current trend recovers 0.31 MMstb</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><ol class="notes">
+          <li><span><b>Evidence funnel</b> uses the five statuses from the methodology. Clicking a stage filters the list.</span></li>
+          <li><span><b>Ranked candidates</b> show type, target (pattern, well, unit), which evidence families are satisfied, expected gain and score. Weights are editable under "Rules &amp; weights".</span></li>
+          <li><span><b>Decision record</b> carries every field in the methodology's record: the four kinds of evidence, mechanism, alternatives, data gaps, validation, action, expected outcome, response window and priority basis.</span></li>
+          <li><span><b>Supporting plots</b> are the same chart components as steps 1 and 2, with the target highlighted, so the evidence is traceable to the plots.</span></li>
+          <li><span><b>Evidence rows</b> are stored as <span class="mono">OpportunityEvidence</span>: metric, value, reference, unit, comment.</span></li>
+          <li><span><b>Actions</b> move the status. Logging an intervention creates a <span class="mono">WellIntervention</span>, and after the response window the record is scored expected vs actual.</span></li>
+        </ol></section>
+<section id="pattern360"><div class="kicker">Drill-down</div><h2>Pattern 360</h2><p>The v1 modal becomes a side panel that keeps the page behind it visible, so a spatial anomaly can be traced to its time series and dimensionless plots without losing context. The breadcrumb walks down the hierarchy.</p><div class="shot" role="img" aria-label="Mockup of the Pattern 360 side panel">
+          <div class="scr dim" style="min-height:520px">
+            <div class="ghostpage">
+              <div class="nb"><div class="brand">FloodPulse <small>v2</small></div><div class="steps"><span class="step on"><i>1</i>Maturity</span><span class="arr">›</span><span class="step"><i>2</i>Process velocity</span><span class="arr">›</span><span class="step"><i>3</i>Opportunities</span></div></div>
+              <div style="padding:12px;display:grid;gap:10px"><div class="kpis" id="ghost-kpis"></div><div class="g g2"><div class="card" style="height:190px"></div><div class="card" style="height:190px"></div></div><div class="g g3"><div class="card" style="height:150px"></div><div class="card" style="height:150px"></div><div class="card" style="height:150px"></div></div></div>
+            </div>
+            <div class="drawer">
+              <div class="crumb"><span class="co">1</span><span>Demo Field</span>›<span>North</span>›<b>P02</b>›<span>INJ-02</span>›<span class="cur">Unit A</span><span style="margin-left:auto" class="btn">Close</span></div>
+              <div class="ptitle"><h5>Pattern P02</h5><span class="badge" style="--bc:#d97706">Mature</span><span class="badge" style="--bc:#dc2626">OPR 0.55 · WPR 1.54</span><span class="badge" style="--bc:#0891b2">1 candidate (E)</span></div>
+              <div class="tabs"><span class="co" style="margin-top:4px">2</span><span>Evidence</span><span>Maturity</span><span>Velocity</span><span class="on">Units</span><span>Wells</span><span>Forecast</span><span>Interventions</span><span>Performance</span><span>Rock &amp; fluid</span></div>
+              <div class="g g2" style="align-content:start">
+                <div class="card"><div class="ch"><span class="co">3</span><b>Units: cumulative injection, HCPV, DWI and TP</b><span class="sp"></span><span class="tg new">NEW</span></div><div class="cb"><div id="p-units"></div></div>
+                  <div class="cb"><table><thead><tr><th>Unit</th><th>Mandrel</th><th class="r">VRF (1/64 in)</th><th class="r">Cobb (bbl/d)</th><th class="r">Actual (bbl/d)</th><th class="r">Actual / Cobb</th><th class="r">Unit TP</th></tr></thead><tbody>
+                    <tr><td>A</td><td>1</td><td class="r">10</td><td class="r">641</td><td class="r">1,583</td><td class="r bad">2.47</td><td class="r">24.3%</td></tr>
+                    <tr><td>B</td><td>2</td><td class="r">6</td><td class="r">519</td><td class="r">461</td><td class="r">0.89</td><td class="r">8.4%</td></tr>
+                    <tr><td>C</td><td>2</td><td class="r">8</td><td class="r">758</td><td class="r">552</td><td class="r">0.73</td><td class="r">7.5%</td></tr>
+                    <tr><td>D</td><td>3</td><td class="r">4</td><td class="r">382</td><td class="r">118</td><td class="r warn">0.31</td><td class="r">2.9%</td></tr>
+                  </tbody></table><div style="color:#64748b;font-size:8.5px;padding:4px 6px">VRF = flow-regulating valve size; Cobb = design rate (input). Unit A takes 2.5× its design rate; D runs at a third of it.</div></div>
+                </div>
+                <div class="card"><div class="ch"><span class="co">4</span><b>Waterflood fit and forecast</b><small>Simmons &amp; Falls</small><span class="sp"></span><span class="ctl">TP: 11.5 %/yr ▾</span><span class="tg new">NEW</span></div><div class="cb"><div id="p-sf"></div><div class="lg"><span><i style="background:#059669"></i>actual Sec RF</span><span><i style="background:#d97706"></i>fit A·(1−e^(−C·DWI)), forecast dashed</span><span><i style="background:#334155"></i>prototype</span></div><div style="font-size:9.5px;color:#334155;padding:4px 6px">A = 16.0 % HCPV, C = 1.6. Remaining waterflood oil on this trend: 4.5 % HCPV (0.31 MMstb). At the target TP, DWI 1.5 is reached in mid-2031.</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div><ol class="notes">
+          <li><span><b>Breadcrumb</b> Field › Area › Pattern › Well › Unit. Each level opens the same panel at that grain, which is how the methodology's deductive drill-down works.</span></li>
+          <li><span><b>Tabs</b>: Evidence (open candidates and their records), Maturity and Velocity (the step 1 and 2 plots for this pattern only), Units, Wells (allocation, HI, rates), Forecast, Interventions; the v1 Performance and Rock &amp; fluid tabs stay.</span></li>
+          <li><span><b>Units</b> from InjSand and InjSand_status: cumulative injection, HCPV, DWI and TP per unit, with the mandrel status next to it.</span></li>
+          <li><span><b>Waterflood fit</b> from SPE-96469: Sec RF = A·(1 − e^(−C·DWI)) fitted per pattern. Because it depends on injected volume rather than time, it gives remaining waterflood oil, a forecast for any target TP, and the baseline for judging whether a job added oil.</span></li>
+        </ol></section>
+<section id="reference"><div class="kicker">Data & reference</div><h2>Your tables, reconciliation and prototypes</h2><p>The v1 Data page accepts your table and column names directly and adds two things: a reconciliation against any derived tables you upload, and a prototype library. Prototypes are reference objects with versions, so recalibrating a curve never silently rewrites how past months were read.</p><div class="shot" role="img" aria-label="Mockup of the Data and reference page">
+          <div class="scr">
+            <div class="nb">
+              <div class="brand">FloodPulse <small>v2 · waterflood surveillance</small></div>
+              <div class="steps"><span class="step"><i>1</i>Maturity</span><span class="arr">›</span><span class="step"><i>2</i>Process velocity</span><span class="arr">›</span><span class="step"><i>3</i>Opportunities</span></div>
+              <div class="right"><span style="color:#0f172a;box-shadow:inset 0 -2px 0 #0891b2;padding-bottom:3px">Data &amp; reference ▾</span></div>
+            </div>
+            <div class="main">
+              <div class="tabs"><span class="on">Data</span><span>Reconciliation</span><span>Prototypes</span><span>Settings</span><span>Method</span></div>
+              <div class="g g3">
+                <div class="card"><div class="ch"><span class="co">1</span><b>Your tables</b><small>Excel sheets or CSV, names as in the .txt</small><span class="sp"></span><span class="tg ext">EXTEND</span></div>
+                  <div class="cb"><table><thead><tr><th>Table</th><th>Role</th><th class="r">Rows</th><th>Check</th></tr></thead><tbody>
+                    <tr><td>Wells</td><td>source</td><td class="r">9,214</td><td class="good">✓ Feb 2008 – Aug 2026</td></tr>
+                    <tr><td>Alloc</td><td>source</td><td class="r">17,920</td><td class="good">✓ Σ coeff = 1 ± 0.02</td></tr>
+                    <tr><td>Vol</td><td>source</td><td class="r">80</td><td class="good">✓ 16 patterns · 5 units</td></tr>
+                    <tr><td>Fluids</td><td>source</td><td class="r">2</td><td class="warn">! no rel-perm, defaults</td></tr>
+                    <tr><td>InjSand</td><td>source</td><td class="r">3,210</td><td class="good">✓ 98.7 % of Wells.BWIPD</td></tr>
+                    <tr><td>InjSand_status</td><td>source</td><td class="r">1,040</td><td class="good">✓ valves and design rates</td></tr>
+                    <tr><td>Patterns_Mat</td><td>derived</td><td class="r">3,584</td><td class="acc">↔ reconciled</td></tr>
+                    <tr><td>Prototypes</td><td>reference</td><td class="r">3</td><td class="good">✓ 2 assigned</td></tr>
+                    <tr><td>Hierarchy</td><td>optional</td><td class="r">–</td><td style="color:#64748b">– one area assumed</td></tr>
+                  </tbody></table></div>
+                </div>
+                <div class="card"><div class="ch"><span class="co">2</span><b>Reconciliation</b><small>app vs your derived tables</small><span class="sp"></span><span class="tg new">NEW</span></div>
+                  <div class="cb"><table><thead><tr><th>Variable</th><th class="r">Within tolerance</th><th>Largest gap</th></tr></thead><tbody>
+                    <tr><td>Np, Nw, Nwi</td><td class="r good">100%</td><td>0.3 % (P07)</td></tr>
+                    <tr><td>IWRCUM</td><td class="r good">100%</td><td>0.01</td></tr>
+                    <tr><td>TP (12 m)</td><td class="r good">97%</td><td>P13: window mismatch?</td></tr>
+                    <tr><td>Util</td><td class="r warn">81%</td><td>window: yours 12 m, app 6 m</td></tr>
+                    <tr><td>OPR, WPR</td><td class="r warn">94%</td><td>3 patterns on older prototype</td></tr>
+                  </tbody></table><div style="color:#64748b;font-size:9px;padding:6px">Each gap links to the pattern and month so the cause can be traced.</div></div>
+                </div>
+                <div class="card"><div class="ch"><span class="co">3</span><b>Prototype library</b><span class="sp"></span><span class="tg new">NEW</span></div>
+                  <div class="cb"><div id="d-proto"></div><table><thead><tr><th>Prototype</th><th>Source</th><th>Ver.</th><th class="r">Patterns</th></tr></thead><tbody>
+                    <tr><td>LCI-North</td><td>analog, 6 patterns</td><td>v3</td><td class="r">11</td></tr>
+                    <tr><td>Sim-case B</td><td>simulation upload</td><td>v1</td><td class="r">4</td></tr>
+                    <tr><td>Buckley-Leverett</td><td>theoretical</td><td>–</td><td class="r">ref.</td></tr>
+                  </tbody></table></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><ol class="notes">
+          <li><span><b>Your tables</b> load by their .txt names, with column aliases (<span class="mono">STOIIP</span>, <span class="mono">Coeff</span>, <span class="mono">visco</span>…). Optional sheets (hierarchy, baseline, well status, interventions, prototypes, rel-perm) come from a new template.</span></li>
+          <li><span><b>Reconciliation</b> compares the app with any derived tables you upload and points at the pattern and month behind each gap. It is the fastest way to agree on windows, baselines and prototype versions.</span></li>
+          <li><span><b>Prototypes</b> come from three sources: uploaded curves (simulation or analog), an analog built in the app from patterns you pick, or Buckley-Leverett. Each assignment has a version and a valid-from date. The <b>Settings</b> tab holds targets and screening bands; LCI values are labelled "LCI reference, not universal".</span></li>
+        </ol></section>
+</main></div>
+<script>
+(function(){
+  var C={plot:'#ffffff',grid:'#e5e9f0',tick:'#64748b',lab:'#64748b',text:'#1e293b',accent:'#0891b2',oil:'#059669',water:'#2563eb',inj:'#7c3aed',warn:'#d97706',crit:'#dc2626',ok:'#0d9488',proto:'#334155',faint:'#a8b3c4',lime:'#65a30d'};
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function lin(d0,d1,r0,r1){return function(v){return r0+(v-d0)/(d1-d0)*(r1-r0);};}
+  function lg(d0,d1,r0,r1){var a=Math.log10(d0),b=Math.log10(d1);return function(v){return r0+(Math.log10(Math.max(v,d0))-a)/(b-a)*(r1-r0);};}
+  function rng(a,b,n){var o=[];for(var i=0;i<=n;i++)o.push(a+(b-a)*i/n);return o;}
+  function f1(v){return v.toFixed(1);}
+  function plot(id,o){
+    var el=document.getElementById(id); if(!el) return;
+    var W=o.w||320,H=o.h||196,m=Object.assign({l:34,r:8,t:8,b:26},o.m||{});
+    var xl=o.x.min,xh=o.x.max,yl=o.y.min,yh=o.y.max;
+    var X=(o.x.log?lg:lin)(xl,xh,m.l,W-m.r),Y=(o.y.log?lg:lin)(yl,yh,H-m.b,m.t);
+    function cy(v){return Math.min(Math.max(v,yl),yh);} function cx(v){return Math.min(Math.max(v,xl),xh);}
+    function px(v){return f1(X(cx(v)));} function py(v){return f1(Y(cy(v)));}
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block" aria-hidden="true">';
+    s+='<rect x="'+m.l+'" y="'+m.t+'" width="'+(W-m.l-m.r)+'" height="'+(H-m.t-m.b)+'" fill="'+C.plot+'"/>';
+    (o.zones||[]).forEach(function(z){var x0=X(cx(z.x0)),x1=X(cx(z.x1)),y0=Y(cy(z.y1)),y1=Y(cy(z.y0));s+='<rect x="'+f1(x0)+'" y="'+f1(y0)+'" width="'+f1(x1-x0)+'" height="'+f1(y1-y0)+'" fill="'+z.fill+'"/>';});
+    o.x.ticks.forEach(function(t){var x=f1(X(t));s+='<line x1="'+x+'" x2="'+x+'" y1="'+m.t+'" y2="'+(H-m.b)+'" stroke="'+C.grid+'"/><text x="'+x+'" y="'+(H-m.b+10)+'" fill="'+C.tick+'" font-size="7.5" text-anchor="middle">'+(o.x.fmt?o.x.fmt(t):t)+'</text>';});
+    o.y.ticks.forEach(function(t){var y=Y(t);s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+f1(y)+'" y2="'+f1(y)+'" stroke="'+C.grid+'"/><text x="'+(m.l-3)+'" y="'+f1(y+2.5)+'" fill="'+C.tick+'" font-size="7.5" text-anchor="end">'+(o.y.fmt?o.y.fmt(t):t)+'</text>';});
+    s+='<text x="'+f1((m.l+W-m.r)/2)+'" y="'+(H-3)+'" fill="'+C.lab+'" font-size="8" text-anchor="middle">'+esc(o.x.label)+'</text>';
+    s+='<text transform="translate(9 '+f1((m.t+H-m.b)/2)+') rotate(-90)" fill="'+C.lab+'" font-size="8" text-anchor="middle">'+esc(o.y.label)+'</text>';
+    (o.bands||[]).forEach(function(b){var xs=rng(b.x0!=null?b.x0:xl,b.x1!=null?b.x1:xh,60);var up=xs.map(function(x){return px(x)+','+py(b.hi(x));});var lo=xs.slice().reverse().map(function(x){return px(x)+','+py(b.lo(x));});s+='<polygon points="'+up.concat(lo).join(' ')+'" fill="'+b.fill+'"/>';});
+    (o.lines||[]).forEach(function(l){var pts=l.fn?rng(l.x0!=null?l.x0:xl,l.x1!=null?l.x1:xh,90).map(function(x){return [x,l.fn(x)];}):l.pts;var d=pts.map(function(p,i){return (i?'L':'M')+px(p[0])+','+py(p[1]);}).join('');s+='<path d="'+d+'" fill="none" stroke="'+l.c+'" stroke-width="'+(l.w||1.3)+'"'+(l.dash?' stroke-dasharray="'+l.dash+'"':'')+(l.op?' opacity="'+l.op+'"':'')+' stroke-linejoin="round" stroke-linecap="round"/>';if(l.lab){var p=l.labAt||pts[pts.length-1];s+='<text x="'+f1(X(cx(p[0]))+(l.dx!=null?l.dx:-2))+'" y="'+f1(Y(cy(p[1]))+(l.dy!=null?l.dy:-4))+'" fill="'+l.c+'" font-size="7.5" text-anchor="'+(l.anchor||'end')+'">'+esc(l.lab)+'</text>';}if(l.end){var q=pts[pts.length-1];s+='<circle cx="'+px(q[0])+'" cy="'+py(q[1])+'" r="2.6" fill="'+l.c+'"/>';}});
+    (o.labels||[]).forEach(function(t){s+='<text x="'+px(t.x)+'" y="'+py(t.y)+'" fill="'+t.c+'" font-size="'+(t.fs||7)+'" font-weight="'+(t.fw||700)+'" text-anchor="'+(t.a||'middle')+'" letter-spacing=".05em">'+esc(t.t)+'</text>';});
+    (o.points||[]).forEach(function(p){var x=+px(p.x),y=+py(p.y),r=p.r||3.6,c=p.c||C.water,op=p.op!=null?p.op:0.9;
+      if(p.hl) s+='<circle cx="'+x+'" cy="'+y+'" r="'+f1(r+3.5)+'" fill="none" stroke="#0f172a" stroke-width="1.3"/>';
+      if(p.shape==='sq') s+='<rect x="'+f1(x-r)+'" y="'+f1(y-r)+'" width="'+f1(2*r)+'" height="'+f1(2*r)+'" fill="'+c+'" fill-opacity="'+op+'" stroke="#ffffff" stroke-width=".8"/>';
+      else if(p.shape==='tri') s+='<polygon points="'+x+','+f1(y-r*1.2)+' '+f1(x+r*1.15)+','+f1(y+r*0.85)+' '+f1(x-r*1.15)+','+f1(y+r*0.85)+'" fill="'+c+'" fill-opacity="'+op+'" stroke="#ffffff" stroke-width=".8"/>';
+      else s+='<circle cx="'+x+'" cy="'+y+'" r="'+f1(r)+'" fill="'+c+'" fill-opacity="'+op+'" stroke="#ffffff" stroke-width=".8"/>';
+      if(p.t) s+='<text x="'+x+'" y="'+f1(y-r-(p.hl?5:3))+'" fill="'+(p.hl?'#0f172a':C.lab)+'" font-size="'+(p.hl?8:6.8)+'" font-weight="'+(p.hl?700:400)+'" text-anchor="middle">'+esc(p.t)+'</text>';});
+    s+='</svg>'; el.innerHTML=s;
+  }
+  function hex(h){h=h.replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)];}
+  function ramp(cols,t){t=Math.min(Math.max(t,0),1);var n=cols.length-1,i=Math.min(Math.floor(t*n),n-1),u=t*n-i,a=hex(cols[i]),b=hex(cols[i+1]);return 'rgb('+a.map(function(v,k){return Math.round(v+(b[k]-v)*u);}).join(',')+')';}
+
+  /* ------------- illustrative pattern data (demo field) ------------- */
+  var proto=function(d){return 0.30*(1-Math.exp(-1.25*d));};
+  var dwpE=function(d){return 0.55*Math.pow(d,1.5);};
+  var utilE=function(d){return 4+45*Math.exp(-d/0.06)+14*Math.pow(d,1.6);};
+  var worE=function(d){return Math.pow(10,-1.2+1.3*d);};
+  // id, dwi, opr, utilFactor, iwr, tp, tp12, period(a pre-2005,b 2005-15,c 2016+), wpr, worFactor, loss, evRatio, hcpv(MMrb)
+  var raw=[
+    ['P01',1.10,0.95,1.00,1.02,10.8,11.2,'b',1.05,1.1,0.08,0.86,7.9],
+    ['P02',0.95,0.55,2.25,1.05,11.9,12.1,'b',1.54,5.4,0.05,0.33,8.2],
+    ['P03',1.35,1.05,0.90,0.78,9.6,10.4,'b',0.92,0.8,0.12,0.92,8.6],
+    ['P04',0.32,1.20,0.80,1.12,6.2,6.0,'c',0.78,0.7,0.02,1.05,6.1],
+    ['P05',1.62,0.92,1.10,0.95,12.8,12.2,'a',1.10,1.3,0.15,0.74,9.4],
+    ['P06',1.80,1.10,0.95,1.08,13.9,13.1,'a',0.88,0.9,0.10,0.88,8.8],
+    ['P07',1.25,0.88,0.75,1.38,14.2,12.9,'b',0.82,0.9,0.31,0.81,7.2],
+    ['P08',0.58,1.02,1.00,1.00,11.0,10.2,'c',0.97,1.0,0.06,0.95,6.8],
+    ['P09',0.74,0.97,1.05,0.93,8.9,9.4,'c',1.02,1.1,0.09,0.83,7.7],
+    ['P10',1.15,0.83,1.20,0.66,7.1,7.5,'b',1.14,1.6,0.01,0.62,8.1],
+    ['P11',1.28,1.15,0.85,0.98,12.1,11.6,'b',0.85,0.8,0.11,0.97,8.9],
+    ['P12',1.92,0.78,1.60,1.18,17.4,16.8,'a',1.28,2.2,0.24,0.58,9.8],
+    ['P13',0.88,1.04,0.70,0.52,4.1,10.8,'c',0.95,0.9,0.18,0.90,7.0],
+    ['P14',0.64,0.90,1.10,0.97,10.2,9.9,'c',1.10,1.2,0.07,0.77,6.5],
+    ['P15',0.81,1.08,0.90,1.04,11.4,11.9,'c',0.90,0.9,0.04,0.93,7.3]
+  ];
+  var P=raw.map(function(r){var o={id:r[0],dwi:r[1],opr:r[2],uf:r[3],iwr:r[4],tp:r[5],tp12:r[6],per:r[7],wpr:r[8],wf:r[9],loss:r[10],evr:r[11],hcpv:r[12]};o.secrf=proto(o.dwi)*o.opr;o.util=utilE(o.dwi)*o.uf;o.wor=worE(o.dwi)*o.wf;o.prodtp=o.tp/o.iwr;return o;});
+  var byId={};P.forEach(function(p){byId[p.id]=p;});
+  var shape=function(p){return p.per==='a'?'sq':(p.per==='c'?'tri':'c');};
+  var utilCol=function(u){return u<10?C.ok:(u<20?C.lime:(u<35?C.warn:C.crit));};
+  var tpCol=function(t){return t<6?C.water:(t<11.5?C.ok:(t<15?C.warn:C.crit));};
+  var iwrCol=function(v){return v<0.8?C.crit:(v<=1.2?C.ok:C.inj);};
+  var iwrR=function(v){return 2.4+2.1*v;};
+  var HL='P02';
+  var pctf=function(v){return Math.round(v*100)+'%';};
+
+  function kpis(id,rows){var el=document.getElementById(id);if(!el)return;el.innerHTML=rows.map(function(r,i){return '<div class="kpi">'+(i===0?'<span class="co" style="float:right">1</span>':'')+'<div class="l">'+r[0]+'</div><div class="v">'+r[1]+'</div><div class="s">'+r[2]+'</div></div>';}).join('');}
+  kpis('mat-kpis',[['HCPV','117.3 MMrb','15 flooded patterns'],['DWI','1.12','field, all units'],['Sec RF','19.4%','RF total 27.1%'],['OPR','0.93','vs assigned prototypes'],['WPR','1.08','at equal DWI'],['DTP · Loss','1.05 · 0.07','DWI − DTP'],['Util 6 m','17.8','rb inj / rb oil'],['Remaining WF oil','5.9 MMstb','waterflood fit']]);
+  kpis('vel-kpis',[['Inj TP 12 m','11.2 %/yr','target 11.5 (LCI)'],['Prod TP 12 m','10.6 %/yr','HCPV/yr'],['IWR 12 m','1.06','band 0.8–1.2'],['Util 6 m','17.8','rb/rb'],['TP vs 12 m ago','−4%','3 patterns −30% or worse'],['Rate gap','+2,960 bwipd','7 patterns below target'],['Under-balanced','3','IWR < 0.8'],['Over-balanced','1','IWR > 1.2']]);
+  var gk=document.getElementById('ghost-kpis'); if(gk){gk.innerHTML=new Array(8).join('<div class="kpi" style="height:44px"></div>')+'<div class="kpi" style="height:44px"></div>';}
+
+  /* 2. Sec RF vs DWI */
+  plot('c-secrf',{w:440,h:232,x:{min:0,max:2.2,ticks:[0,0.5,1,1.5,2],label:'DWI (HCPV injected)'},y:{min:0,max:0.34,ticks:[0,0.1,0.2,0.3],fmt:pctf,label:'Secondary RF'},
+    zones:[{x0:0,x1:0.15,y0:0,y1:0.34,fill:'rgba(148,163,184,0.18)'}],
+    bands:[{lo:function(d){return proto(d)*0.8;},hi:function(d){return proto(d)*1.2;},fill:'rgba(51,65,85,0.14)'}],
+    lines:[{fn:proto,c:C.proto,w:1.6,lab:'prototype',dy:-6},{pts:[[0.05,0.10],[0.28,0.07],[0.52,0.075],[0.75,0.10],[0.95,byId.P02.secrf]],c:'rgba(15,23,42,0.45)',w:1,dash:'2 2'}],
+    labels:[{x:0.075,y:0.325,t:'TOO EARLY',c:'#64748b',fs:6.5},{x:0.075,y:0.305,t:'TO JUDGE',c:'#64748b',fs:6.5}],
+    points:P.map(function(p){return {x:p.dwi,y:p.secrf,c:utilCol(p.util),r:iwrR(p.iwr),shape:shape(p),t:p.id,hl:p.id===HL};})});
+
+  /* 3. OPR vs WPR */
+  var qc=function(p){return p.opr>=1&&p.wpr<1?C.ok:(p.opr>=1?C.water:(p.wpr<1?C.warn:C.crit));};
+  plot('c-oprwpr',{w:330,h:232,x:{min:0,max:2,ticks:[0,0.5,1,1.5,2],label:'WPR (water vs expected)'},y:{min:0,max:1.6,ticks:[0,0.5,1,1.5],label:'OPR (oil vs expected)'},
+    zones:[{x0:0,x1:1,y0:1,y1:1.6,fill:'rgba(45,212,191,0.14)'},{x0:1,x1:2,y0:1,y1:1.6,fill:'rgba(96,165,250,0.11)'},{x0:0,x1:1,y0:0,y1:1,fill:'rgba(251,191,36,0.11)'},{x0:1,x1:2,y0:0,y1:1,fill:'rgba(248,113,113,0.14)'}],
+    lines:[{pts:[[1,0],[1,1.6]],c:'#94a3b8',w:1},{pts:[[0,1],[2,1]],c:'#94a3b8',w:1}],
+    labels:[{x:0.5,y:1.53,t:'BEST: MORE OIL, LESS WATER',c:C.ok,fs:6.2},{x:1.5,y:1.53,t:'MORE OIL, MORE WATER',c:C.water,fs:6.2},{x:0.5,y:0.06,t:'LOW RESPONSE: OUT OF ZONE?',c:C.warn,fs:6.2},{x:1.5,y:0.06,t:'WORST: LOW OIL, EXCESS WATER',c:C.crit,fs:6.2}],
+    points:P.map(function(p){return {x:p.wpr,y:p.opr,c:qc(p),r:4,t:p.id,hl:p.id===HL};})});
+
+  /* 4. Utilization vs DWI */
+  plot('c-util',{w:320,h:190,x:{min:0,max:2.2,ticks:[0,0.5,1,1.5,2],label:'DWI'},y:{min:0,max:80,ticks:[0,20,40,60,80],label:'Utilization (rb/rb, 6 m)'},
+    lines:[{fn:utilE,x0:0.02,c:C.proto,w:1.5,lab:'prototype',labAt:[1.95,utilE(1.95)],dy:-5}],
+    labels:[{x:0.2,y:74,t:'FILL-UP',c:'#64748b',fs:6.3}],
+    points:P.map(function(p){return {x:p.dwi,y:p.util,c:tpCol(p.tp),r:iwrR(p.iwr)*0.85,t:p.id,hl:p.id===HL};})});
+
+  /* 5. WOR vs DWI (log) */
+  plot('c-wor',{w:320,h:190,x:{min:0,max:2.2,ticks:[0,0.5,1,1.5,2],label:'DWI'},y:{min:0.01,max:100,log:true,ticks:[0.01,0.1,1,10,100],label:'WOR (log)'},
+    bands:[{lo:function(d){return worE(d)*0.5;},hi:function(d){return worE(d)*2;},fill:'rgba(51,65,85,0.14)',x0:0.05}],
+    lines:[{fn:worE,x0:0.05,c:C.proto,w:1.5,lab:'prototype · rock type 1',labAt:[2.15,worE(2.15)],dy:12}],
+    points:P.map(function(p){return {x:p.dwi,y:p.wor,c:p.wor>worE(p.dwi)*2?C.crit:C.water,r:3.4,t:p.id,hl:p.id===HL};})});
+
+  /* 6. DWI by unit: three aligned panels */
+  function unitPanels(id,o){
+    var el=document.getElementById(id);if(!el)return;
+    var W=o.w||320,H=o.h||170,lab=18,gap=10,np=o.panels.length,pw=(W-lab-gap*(np-1)-4)/np,top=16,bot=4,rh=(H-top-bot)/o.units.length;
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block" aria-hidden="true">';
+    o.units.forEach(function(u,i){s+='<text x="2" y="'+f1(top+rh*i+rh/2+3)+'" fill="'+(u===o.hl?'#0f172a':C.lab)+'" font-size="8" font-weight="'+(u===o.hl?700:400)+'">'+u+'</text>';});
+    o.panels.forEach(function(p,k){var x0=lab+k*(pw+gap);s+='<text x="'+f1(x0)+'" y="10" fill="'+C.lab+'" font-size="7.5">'+esc(p.t)+'</text>';
+      p.v.forEach(function(v,i){var w=Math.max(1,v/p.max*(pw-26)),y=top+rh*i+rh*0.18,h=rh*0.64,col=p.c?p.c(v,i):C.water;
+        s+='<rect x="'+f1(x0)+'" y="'+f1(y)+'" width="'+f1(w)+'" height="'+f1(h)+'" fill="'+col+'" rx="1.5"'+(o.units[i]===o.hl?' stroke="#0f172a" stroke-width="1"':'')+'/>';
+        s+='<text x="'+f1(x0+w+3)+'" y="'+f1(y+h/2+3)+'" fill="'+C.text+'" font-size="7.5">'+p.f(v)+'</text>';});});
+    s+='</svg>';el.innerHTML=s;}
+  var units=['A','B','C','D','E'],cumWi=[4.6,1.2,1.5,0.3,0.2],hcpvU=[2.2,1.7,2.3,1.2,0.8],dwiU=cumWi.map(function(v,i){return v/hcpvU[i];});
+  var dwiCol=function(v){return v>=1.2?'#3b82f6':(v>=0.5?'#0891b2':'#059669');};
+  unitPanels('c-units',{w:320,h:172,units:units,hl:'A',panels:[
+    {t:'Cum. injection, MMbbl',v:cumWi,max:5,f:function(v){return v.toFixed(1);},c:function(){return '#475f86';}},
+    {t:'HCPV, MMrb',v:hcpvU,max:2.6,f:function(v){return v.toFixed(1);},c:function(){return '#3f6f5a';}},
+    {t:'DWI',v:dwiU,max:2.3,f:function(v){return v.toFixed(2);},c:dwiCol}]});
+
+  /* 7 & velocity map: 4x4 pattern grid */
+  function gridmap(id,o){
+    var el=document.getElementById(id);if(!el)return;
+    var W=o.w||320,H=o.h||196,n=4,pad=10,cell=(H-2*pad)/n,ox=pad+8;
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block" aria-hidden="true">';
+    for(var i=0;i<n;i++){for(var j=0;j<n;j++){var k=i*n+j+1,pid='P'+(k<10?'0'+k:k),x=ox+i*cell,y=pad+(n-1-j)*cell,v=o.vals[pid];
+      var col=v==null?'#e2e8f0':ramp(o.ramp,(v-o.range[0])/(o.range[1]-o.range[0]));
+      s+='<rect x="'+f1(x)+'" y="'+f1(y)+'" width="'+f1(cell)+'" height="'+f1(cell)+'" fill="'+col+'" stroke="'+(pid===o.hl?'#0f172a':'#ffffff')+'" stroke-width="'+(pid===o.hl?2:1.5)+'"/>';
+      s+='<text x="'+f1(x+5)+'" y="'+f1(y+11)+'" fill="#ffffff" font-size="7.5" font-weight="700" opacity=".95">'+pid+'</text>';
+      if(v==null) s+='<text x="'+f1(x+cell/2)+'" y="'+f1(y+cell/2+10)+'" fill="#64748b" font-size="6.5" text-anchor="middle">primary</text>';
+      var b=o.bubbles&&o.bubbles[pid];
+      if(b){s+='<circle cx="'+f1(x+cell/2)+'" cy="'+f1(y+cell/2+3)+'" r="'+f1(b.r)+'" fill="'+b.c+'" stroke="#f4f6fa" stroke-width="1"/>';}
+      else if(v!=null){s+='<polygon points="'+f1(x+cell/2)+','+f1(y+cell/2+7)+' '+f1(x+cell/2+4.5)+','+f1(y+cell/2-1)+' '+f1(x+cell/2-4.5)+','+f1(y+cell/2-1)+'" fill="#f4f6fa" opacity=".75"/>';}
+    }}
+    for(var a=0;a<=n;a++){for(var c2=0;c2<=n;c2++){s+='<circle cx="'+f1(ox+a*cell)+'" cy="'+f1(pad+c2*cell)+'" r="2.2" fill="#ffffff" stroke="#334155" stroke-width=".9"/>';}}
+    var lx=ox+n*cell+16,lh=H-2*pad-16;
+    s+='<defs><linearGradient id="lg-'+id+'" x1="0" y1="1" x2="0" y2="0">'+o.ramp.map(function(c,i){return '<stop offset="'+(i/(o.ramp.length-1))+'" stop-color="'+c+'"/>';}).join('')+'</linearGradient></defs>';
+    s+='<rect x="'+f1(lx)+'" y="'+(pad+8)+'" width="7" height="'+f1(lh)+'" fill="url(#lg-'+id+')" rx="2"/>';
+    s+='<text x="'+f1(lx+11)+'" y="'+(pad+12)+'" fill="'+C.lab+'" font-size="7">'+o.fmt(o.range[1])+'</text><text x="'+f1(lx+11)+'" y="'+f1(pad+8+lh)+'" fill="'+C.lab+'" font-size="7">'+o.fmt(o.range[0])+'</text>';
+    s+='<text x="'+f1(lx-2)+'" y="'+(pad+3)+'" fill="'+C.lab+'" font-size="7">'+esc(o.title)+'</text>';
+    if(o.note) s+='<text x="'+f1(lx-2)+'" y="'+f1(H-4)+'" fill="'+C.lab+'" font-size="6.8">'+esc(o.note)+'</text>';
+    s+='</svg>';el.innerHTML=s;}
+  var dwiVals={};P.forEach(function(p){dwiVals[p.id]=p.dwi;});
+  var dwiRamp=['#16a34a','#22c55e','#0891b2','#3b82f6','#1e3a8a'];
+  gridmap('c-matmap',{w:300,h:196,vals:dwiVals,range:[0,2],ramp:dwiRamp,hl:'P02',title:'DWI',fmt:function(v){return v.toFixed(1);}});
+  var unitC={},bub={},tpC={P01:9,P02:7.5,P03:6,P04:4.2,P05:13,P06:15,P07:18,P08:10,P09:5.1,P10:3.2,P11:12,P12:31,P13:1.5,P14:8,P15:11};
+  var dwiC={P01:0.9,P02:0.65,P03:1.2,P04:0.25,P05:1.5,P06:1.7,P07:1.4,P08:0.5,P09:0.45,P10:0.8,P11:1.1,P12:2.1,P13:0.41,P14:0.55,P15:0.7};
+  var tpBub=function(t){return t>=30?'#ef4444':(t>=11.5?'#ea580c':(t>=5?'#ca8a04':'#cbd5e1'));};
+  Object.keys(dwiC).forEach(function(k){unitC[k]=dwiC[k];bub[k]={r:3+Math.sqrt(tpC[k])*1.5,c:tpBub(tpC[k])};});
+  gridmap('c-velmap',{w:300,h:196,vals:unitC,range:[0,2],ramp:dwiRamp,bubbles:bub,title:'DWI unit C',fmt:function(v){return v.toFixed(1);},note:'bubbles: unit TP'});
+
+  /* 8. HI trajectories */
+  var hi=[
+    {w:'PRD-02',c:C.crit,pts:[[0.10,0.05],[0.30,-0.05],[0.50,-0.15],[0.70,-0.25],[0.85,-0.35],[0.92,-0.42]]},
+    {w:'PRD-03',c:C.ok,pts:[[-0.20,0.10],[-0.15,0.20],[-0.10,0.28],[-0.12,0.35],[-0.08,0.40],[-0.05,0.44]]},
+    {w:'PRD-06',c:C.water,pts:[[0.05,0.00],[0.10,0.05],[0.20,0.10],[0.25,0.12],[0.30,0.18],[0.32,0.20]]},
+    {w:'PRD-07',c:C.warn,pts:[[-0.30,-0.20],[-0.35,-0.25],[-0.40,-0.28],[-0.42,-0.30],[-0.45,-0.35],[-0.50,-0.38]]}
+  ];
+  plot('c-hi',{w:320,h:196,x:{min:-0.8,max:1.2,ticks:[-0.5,0,0.5,1],fmt:function(v){return (v>0?'+':'')+v;},label:'HI water'},y:{min:-0.6,max:0.6,ticks:[-0.5,0,0.5],fmt:function(v){return (v>0?'+':'')+v;},label:'HI oil'},
+    zones:[{x0:-0.8,x1:0,y0:0,y1:0.6,fill:'rgba(45,212,191,0.13)'},{x0:0,x1:1.2,y0:-0.6,y1:0,fill:'rgba(248,113,113,0.14)'}],
+    lines:[{pts:[[0,-0.6],[0,0.6]],c:'#94a3b8',w:1},{pts:[[-0.8,0],[1.2,0]],c:'#94a3b8',w:1}].concat(hi.map(function(h){return {pts:h.pts,c:h.c,w:1.5,end:true,lab:h.w,dx:4,dy:3,anchor:'start'};})),
+    labels:[{x:-0.4,y:0.54,t:'MORE OIL, LESS WATER',c:C.ok,fs:6.2},{x:0.62,y:-0.55,t:'LESS OIL, MORE WATER',c:C.crit,fs:6.2}]});
+
+  /* stage (keep) */
+  (function(){var el=document.getElementById('c-stage');if(!el)return;var rows=[['Primary',1,'#64748b'],['Early response',1,'#2563eb'],['Developing',4,'#0d9488'],['Mature',8,'#d97706'],['Late life',2,'#dc2626']];
+    el.innerHTML=rows.map(function(r){return '<div style="display:grid;grid-template-columns:78px 1fr 20px;gap:6px;align-items:center;margin:5px 0;font-size:9.5px;color:#334155"><span>'+r[0]+'</span><span style="height:9px;border-radius:2px;background:'+r[2]+';width:'+(r[1]/8*100)+'%"></span><span style="text-align:right">'+r[1]+'</span></div>';}).join('')+'<div style="font-size:8.5px;color:#64748b;margin-top:8px">Thresholds now on DWI and water cut; STOOIP per stage in the tooltip.</div>';})();
+
+  /* ---------------- velocity ---------------- */
+  var T=11.5;
+  plot('c-utiltp',{w:320,h:200,x:{min:0,max:80,ticks:[0,20,40,60,80],label:'Utilization (rb/rb, 6 m)'},y:{min:0,max:20,ticks:[0,5,10,15,20],fmt:function(v){return v+'%';},label:'Inj TP (%HCPV/yr)'},
+    zones:[{x0:0,x1:20,y0:0,y1:T,fill:'rgba(45,212,191,0.16)'},{x0:30,x1:80,y0:T,y1:20,fill:'rgba(248,113,113,0.14)'}],
+    lines:[{pts:[[0,T],[80,T]],c:C.warn,w:1,dash:'4 3',lab:'target 11.5 %/yr',labAt:[80,T],dy:-3}],
+    labels:[{x:10,y:1.2,t:'ACCELERATE',c:C.ok,fs:6.5},{x:50,y:19,t:'CONTROL',c:C.crit,fs:6.5}],
+    points:P.map(function(p){return {x:p.util,y:p.tp,c:iwrCol(p.iwr),r:iwrR(p.iwr)*0.85,t:p.id,hl:p.id==='P04'||p.id==='P12'};})});
+  plot('c-tp12',{w:320,h:200,x:{min:0,max:20,ticks:[0,5,10,15,20],fmt:function(v){return v+'%';},label:'Inj TP 12 months ago'},y:{min:0,max:20,ticks:[0,5,10,15,20],fmt:function(v){return v+'%';},label:'Inj TP now'},
+    lines:[{pts:[[0,0],[20,20]],c:C.proto,w:1.2,lab:'no change',labAt:[17.5,17.5],dy:-4},{pts:[[0,0],[16,20]],c:'#94a3b8',w:0.9,dash:'3 3',lab:'+25%',labAt:[15,18.75],dy:-3},{pts:[[0,0],[20,15]],c:'#94a3b8',w:0.9,dash:'3 3',lab:'−25%',labAt:[20,15],dy:-3},{pts:[[0,0],[20,10]],c:C.crit,w:0.9,dash:'3 3',lab:'−50%',labAt:[20,10],dy:-3}],
+    points:P.map(function(p){return {x:p.tp12,y:p.tp,c:iwrCol(p.iwr),r:iwrR(p.iwr)*0.85,t:p.id,hl:p.id==='P13'};})});
+  plot('c-iwr',{w:320,h:200,x:{min:0,max:80,ticks:[0,20,40,60,80],label:'Utilization (rb/rb, 6 m)'},y:{min:0,max:2,ticks:[0,0.5,1,1.5,2],label:'IWR (12 m)'},
+    zones:[{x0:0,x1:80,y0:0.8,y1:1.2,fill:'rgba(45,212,191,0.14)'}],
+    lines:[{pts:[[0,0.8],[80,0.8]],c:C.crit,w:0.9,dash:'3 3',lab:'0.8 under-balanced',labAt:[80,0.8],dy:9},{pts:[[0,1.2],[80,1.2]],c:C.inj,w:0.9,dash:'3 3',lab:'1.2 over-balanced',labAt:[80,1.2],dy:-3}],
+    points:P.map(function(p){return {x:p.util,y:p.iwr,c:utilCol(p.util),r:iwrR(p.iwr)*0.85,t:p.id,hl:p.id==='P07'||p.id==='P13'};})});
+  plot('c-bal',{w:320,h:196,x:{min:0,max:20,ticks:[0,5,10,15,20],fmt:function(v){return v+'%';},label:'Prod TP (%HCPV/yr)'},y:{min:0,max:20,ticks:[0,5,10,15,20],fmt:function(v){return v+'%';},label:'Inj TP (%HCPV/yr)'},
+    lines:[{pts:[[0,0],[20,20]],c:C.proto,w:1.2,lab:'IWR 1',labAt:[17,17],dy:-4},{pts:[[0,0],[16.67,20]],c:C.inj,w:0.9,dash:'3 3',lab:'1.2',labAt:[16.67,20],dy:8,dx:6,anchor:'start'},{pts:[[0,0],[20,16]],c:C.crit,w:0.9,dash:'3 3',lab:'0.8',labAt:[20,16],dy:-3}],
+    points:P.map(function(p){return {x:p.prodtp,y:p.tp,c:iwrCol(p.iwr),r:3.6,t:p.id,hl:p.id==='P07'||p.id==='P13'};})});
+
+  /* rate gap bars */
+  (function(){var el=document.getElementById('c-gap');if(!el)return;
+    var rows=P.map(function(p){var tgt=0.115*p.hcpv*1e6/365,cur=p.tp/100*p.hcpv*1e6/365;return {id:p.id,g:tgt-cur};}).sort(function(a,b){return Math.abs(b.g)-Math.abs(a.g);}).slice(0,8);
+    var mx=Math.max.apply(null,rows.map(function(r){return Math.abs(r.g);}));
+    el.innerHTML='<div style="display:grid;grid-template-columns:28px 1fr 1fr 52px;gap:4px 6px;align-items:center;font-size:9.5px;color:#334155">'+
+      '<span></span><span style="text-align:right;font-size:8px;color:#64748b">reduce</span><span style="font-size:8px;color:#64748b">raise</span><span></span>'+
+      rows.map(function(r){var w=(Math.abs(r.g)/mx*100).toFixed(0);var neg=r.g<0;
+        return '<span style="font-weight:'+(r.id==='P13'?700:400)+'">'+r.id+'</span>'+
+        '<span style="display:flex;justify-content:flex-end">'+(neg?'<span style="height:9px;border-radius:2px 0 0 2px;background:#7c3aed;width:'+w+'%"></span>':'')+'</span>'+
+        '<span>'+(!neg?'<span style="display:block;height:9px;border-radius:0 2px 2px 0;background:#0d9488;width:'+w+'%"></span>':'')+'</span>'+
+        '<span style="text-align:right;font-variant-numeric:tabular-nums">'+(neg?'−':'+')+Math.round(Math.abs(r.g)).toLocaleString('en-US')+'</span>';}).join('')+'</div>'+
+      '<div style="font-size:8.5px;color:#64748b;margin-top:8px">Target rate = 11.5 % × HCPV / 365 / Bw, per pattern or unit.</div>';})();
+
+  /* TP history by unit */
+  (function(){var yrs=rng(2021,2026.6,22);var base=[['A',19.2,18.4,'#3b82f6'],['B',10.4,9.6,'#0891b2'],['C',12.6,11.8,'#059669'],['D',3.6,2.2,'#d97706'],['E',1.8,1.2,'#dc2626']];
+    var lines=base.map(function(b,k){return {pts:yrs.map(function(y,i){var t=(y-2021)/5.6;return [y,b[1]+(b[2]-b[1])*t+Math.sin(i*1.7+k)*0.45];}),c:b[3],w:1.4,lab:'unit '+b[0],dx:3,dy:3,anchor:'start'};});
+    lines.push({pts:[[2021,11.5],[2026.6,11.5]],c:C.proto,w:1,dash:'4 3',lab:'target',labAt:[2021.9,11.5],dy:-3});
+    plot('c-tphist',{w:470,h:176,m:{r:40},x:{min:2021,max:2026.6,ticks:[2021,2022,2023,2024,2025,2026],label:''},y:{min:0,max:22,ticks:[0,5,10,15,20],fmt:function(v){return v+'%';},label:'Inj TP (%HCPV/yr)'},lines:lines});})();
+
+  /* pulse board heatmap */
+  (function(){var el=document.getElementById('c-pulse');if(!el)return;var W=470,H=176,l=30,t=6,r=6,b=14,nm=36,ids=P.map(function(p){return p.id;});var cw=(W-l-r)/nm,chh=(H-t-b)/ids.length;
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block" aria-hidden="true">';
+    ids.forEach(function(id,i){var p=byId[id];s+='<text x="'+(l-4)+'" y="'+f1(t+chh*i+chh/2+2.5)+'" fill="'+(id==='P13'?'#0f172a':C.lab)+'" font-size="7" text-anchor="end">'+id+'</text>';
+      for(var k=0;k<nm;k++){var v=p.iwr+Math.sin(k*0.9+i*1.3)*0.12+Math.cos(k*0.37+i)*0.06;if(id==='P13'&&k>=nm-5)v=0.25+0.05*(k%2);if(id==='P13'&&k<nm-5)v=1.02+Math.sin(k)*0.05;
+        var u=Math.min(Math.max((v-0.4)/1.2,0),1);var col=u<0.5?ramp(['#b91c1c','#dc2626','#eef2f7'],u*2):ramp(['#eef2f7','#2563eb','#1d4ed8'],(u-0.5)*2);
+        s+='<rect x="'+f1(l+k*cw)+'" y="'+f1(t+chh*i)+'" width="'+f1(cw-0.6)+'" height="'+f1(chh-0.6)+'" fill="'+col+'"/>';}});
+    ['Sep 2023','Sep 2024','Sep 2025','Aug 2026'].forEach(function(lb,i){var k=[0,12,24,35][i];s+='<text x="'+f1(l+k*cw+(i===3?cw:0))+'" y="'+(H-3)+'" fill="'+C.tick+'" font-size="7" text-anchor="'+(i===3?'end':'start')+'">'+lb+'</text>';});
+    s+='</svg>';el.innerHTML=s;})();
+
+  /* ---------------- opportunities ---------------- */
+  (function(){var el=document.getElementById('o-list');if(!el)return;
+    var rows=[
+      ['E','#dc2626','Conformance · P02 / INJ-02 / unit A','MVUS',  '','82','+45 bopd','candidate',true],
+      ['B','#2563eb','Stimulation · INJ-13 / unit C','MVUO','', '77','+60 bopd','validated',false],
+      ['F','#0d9488','Raise rate · P04 (+890 bwipd)','MV','',   '71','+38 bopd','candidate',false],
+      ['C','#7c3aed','Extraction · P07 (IWR 1.38)','MV','O',    '64','+30 bopd','candidate · gap: fluid levels',false],
+      ['A','#d97706','Control unit A · INJ-06','UV','',          '58','WOR −15%','candidate',false],
+      ['D','#334155','Support ADPERF · P09 / unit D','OV','',   '41','+18 bopd','candidate',false],
+      ['F','#0d9488','Cut rate · P12','V','',                    '35','Util −20%','screening_only',false]
+    ];
+    el.innerHTML=rows.map(function(r){var fam=['M','V','U','S','O'].map(function(f){return '<span class="'+(r[3].indexOf(f)>=0?'y':(r[4].indexOf(f)>=0?'q':''))+'">'+f+'</span>';}).join('');
+      return '<div class="orow'+(r[8]?' on':'')+'"><span class="ot" style="--tc:'+r[1]+'">'+r[0]+'</span><div class="on2"><b>'+r[2]+'</b><div class="ev">'+fam+'<span style="border:0;color:#64748b;font-weight:500">'+r[7]+'</span></div></div><div class="osc"><b>'+r[5]+'</b><small>'+r[6]+'</small></div></div>';}).join('')+
+      '<div style="padding:7px 9px;font-size:8.5px;color:#64748b;border-top:1px solid #eef2f7">Green = evidence family satisfied · amber = needed but missing · score 0–100</div>';})();
+  plot('o-m1',{w:210,h:128,m:{l:26,b:20,t:6,r:6},x:{min:0,max:2.2,ticks:[0,1,2],label:'DWI'},y:{min:0,max:0.34,ticks:[0,0.1,0.2,0.3],fmt:pctf,label:''},
+    lines:[{fn:proto,c:C.proto,w:1.3}],points:P.map(function(p){return {x:p.dwi,y:p.secrf,c:p.id===HL?C.crit:'#a8b3c4',r:p.id===HL?3.6:2.4,hl:p.id===HL,t:p.id===HL?p.id:''};})});
+  plot('o-m2',{w:210,h:128,m:{l:26,b:20,t:6,r:6},x:{min:0,max:80,ticks:[0,40,80],label:'Util'},y:{min:0,max:20,ticks:[0,10,20],fmt:function(v){return v+'%';},label:''},
+    lines:[{pts:[[0,T],[80,T]],c:C.warn,w:0.9,dash:'3 3'}],points:P.map(function(p){return {x:p.util,y:p.tp,c:p.id===HL?C.crit:'#a8b3c4',r:p.id===HL?3.6:2.4,hl:p.id===HL,t:p.id===HL?p.id:''};})});
+  plot('o-m3',{w:210,h:128,m:{l:26,b:20,t:6,r:6},x:{min:0,max:0.4,ticks:[0,0.2,0.4],label:'Loss = DWI − DTP'},y:{min:0,max:1.1,ticks:[0,0.4,0.8],label:''},
+    zones:[{x0:0,x1:0.2,y0:0,y1:0.8,fill:'rgba(251,191,36,0.18)'},{x0:0.2,x1:0.4,y0:0,y1:0.8,fill:'rgba(248,113,113,0.22)'},{x0:0.2,x1:0.4,y0:0.8,y1:1.1,fill:'rgba(251,191,36,0.11)'},{x0:0,x1:0.2,y0:0.8,y1:1.1,fill:'rgba(52,211,153,0.14)'}],
+    labels:[{x:0.1,y:0.05,t:'THIEF ZONE',c:C.warn,fs:6},{x:0.3,y:0.05,t:'RESERVOIR & WELL',c:C.crit,fs:6}],
+    points:P.map(function(p){return {x:p.loss,y:Math.min(p.evr,1.08),c:p.id===HL?C.crit:'#a8b3c4',r:p.id===HL?3.6:2.4,hl:p.id===HL,t:p.id===HL?p.id:''};})});
+
+  /* ---------------- pattern 360 ---------------- */
+  var tpU=[24.3,8.4,7.5,2.9,2.3];
+  unitPanels('p-units',{w:440,h:150,units:units,hl:'A',panels:[
+    {t:'Cum. injection, MMbbl',v:cumWi,max:5,f:function(v){return v.toFixed(1);},c:function(){return '#475f86';}},
+    {t:'HCPV, MMrb',v:hcpvU,max:2.6,f:function(v){return v.toFixed(1);},c:function(){return '#3f6f5a';}},
+    {t:'DWI',v:dwiU,max:2.3,f:function(v){return v.toFixed(2);},c:dwiCol},
+    {t:'Unit TP, %/yr',v:tpU,max:28,f:function(v){return v.toFixed(1);},c:function(v){return v>=15?'#ea580c':(v>=5?'#ca8a04':'#cbd5e1');}}]});
+  (function(){var A=0.16,Cc=1.6,fit=function(d){return A*(1-Math.exp(-Cc*d));};
+    var hist=rng(0.02,0.95,24).map(function(d,i){return [d,fit(d)*(0.93+0.1*Math.sin(i*1.3))];});hist[hist.length-1]=[0.95,0.115];
+    plot('p-sf',{w:440,h:196,x:{min:0,max:2,ticks:[0,0.5,1,1.5,2],label:'DWI'},y:{min:0,max:0.3,ticks:[0,0.1,0.2,0.3],fmt:pctf,label:'Secondary RF (fraction of HCPV)'},
+      lines:[{fn:proto,c:C.proto,w:1.2,lab:'prototype',labAt:[1.9,proto(1.9)],dy:-5},{fn:fit,x0:0,x1:0.95,c:C.warn,w:1.5},{fn:fit,x0:0.95,x1:2,c:C.warn,w:1.5,dash:'4 3',lab:'fit A = 16 %',labAt:[1.95,fit(1.95)],dy:12},{pts:[[1.5,0],[1.5,0.3]],c:'#94a3b8',w:0.8,dash:'2 3',lab:'DWI 1.5 in 2031 at target TP',labAt:[1.5,0.29],dx:-3,dy:2}],
+      points:hist.map(function(p,i){return {x:p[0],y:p[1],c:C.oil,r:i===hist.length-1?3.6:2.2,hl:i===hist.length-1};})});})();
+
+  /* ---------------- prototypes (data page) ---------------- */
+  plot('d-proto',{w:330,h:150,m:{l:30,b:22,t:8,r:8},x:{min:0,max:2.2,ticks:[0,0.5,1,1.5,2],label:'DWI'},y:{min:0,max:0.4,ticks:[0,0.1,0.2,0.3,0.4],fmt:pctf,label:''},
+    lines:[{fn:proto,c:C.proto,w:1.5,lab:'LCI-North v3',labAt:[2.1,proto(2.1)],dy:-4},{fn:function(d){return 0.24*(1-Math.exp(-1.1*d));},c:C.inj,w:1.3,lab:'Sim-case B',labAt:[2.1,0.24*(1-Math.exp(-2.31))],dy:10},{fn:function(d){return Math.min(0.36,0.62*d/(1+1.2*d));},c:'#94a3b8',w:1,dash:'3 3',lab:'Buckley-Leverett',labAt:[1.2,0.62*1.2/(1+1.44)],dy:-5}]});
+})();
+</script>
