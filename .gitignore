@@ -1,0 +1,6 @@
+.Rhistory
+.RData
+.Rproj.user/
+rsconnect/
+data/uploads/
+.DS_Store
