@@ -177,3 +177,4 @@ table.dataTable td { border-top: 1px solid #172238 !important; }
 .wf-act.big { font-size: .8rem; padding: 5px 8px; }
 .wf-record .wf-kpi-row.compact { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
 .wf-record .wf-kpi-row.compact .wf-kpi-value { font-size: .95rem; white-space: normal; overflow: visible; }
+.modal .wf-kpi-row.compact .wf-kpi-value { font-size: .95rem; white-space: normal; overflow: visible; }

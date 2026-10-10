@@ -34,6 +34,8 @@ w360_server <- function(input, output, session, ctx, wsel) {
       badge(drive, if (drive == "primary") "#94a3b8" else "#60a5fa"),
       if (nrow(x)) badge(paste("patterns", paste(sprintf("%s %s", x$pattern, fmt_pct(x$coeff, 0)), collapse = " · ")), "#a78bfa"),
       if (nrow(ops())) badge(sprintf("%d opportunities", nrow(ops())), pal$accent),
+      if (nrow(ops()[as.character(status) %in% c("screening_only", "candidate", "validated_candidate")]))
+        shiny::actionButton("w360_job", "Build a job on this well", class = "btn-sm btn-primary"),
       htmltools::div(class = "wf-kpi-row compact",
         kpi("Oil (6 m)", fmt_int(if (!is.null(last)) mean(last$bopd) else NA), "bopd"),
         kpi("Water (6 m)", fmt_int(if (!is.null(last)) mean(last$bwpd) else NA), "bwpd"),
@@ -53,6 +55,10 @@ w360_server <- function(input, output, session, ctx, wsel) {
     p <- plot_well_history(hist(), 30)
     if (length(iv)) p <- plotly::layout(p, shapes = lapply(iv, vline_shape, col = pal$warn))
     p
+  })
+  shiny::observeEvent(input$w360_job, {
+    s <- ops()[as.character(status) %in% c("screening_only", "candidate", "validated_candidate")]
+    shiny::removeModal(); ctx$job_req(list(well = wsel(), pre = character(), t = Sys.time()))
   })
   output$w360_strip <- plotly::renderPlotly(plot_interval_strip(ivw()))
   output$w360_iv <- DT::renderDT({
@@ -89,7 +95,9 @@ w360_server <- function(input, output, session, ctx, wsel) {
   output$w360_jobs <- DT::renderDT({
     ctx$store_tick()
     a <- ctx$res()$ds$interventions; a <- if (!is.null(a)) a[well == wsel(), .(source = "table", date, type, sand, status, notes)] else NULL
-    b <- store_interventions(ctx$con); b <- if (nrow(b)) b[well == wsel(), .(source = "app", date, type, sand, interval_id, status, notes, job)] else NULL
+    b <- store_interventions(ctx$con)
+    b <- if (nrow(b)) b[well == wsel()][, job := data.table::fcoalesce(job, paste0("APP-", id))][, .(source = "app", date = date[1], type = paste(unique(type), collapse = " + "),
+           sand = paste(stats::na.omit(sand), collapse = ", "), interval_id = paste(stats::na.omit(interval_id), collapse = ", "), status = status[1], notes = notes[1], opportunities = .N), by = job] else NULL
     x <- data.table::rbindlist(list(a, b), fill = TRUE)
     if (!nrow(x)) x <- data.table::data.table(Message = "No jobs on this well")
     dt_dark(x, dom = "t")

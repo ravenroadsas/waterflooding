@@ -55,6 +55,15 @@ profile_summary <- function(pf, horizon = 360) {
   w[]
 }
 
+# A job's forecast: intervals add up, so Bajo / Base / Alto of the job are the sums of its
+# opportunities' scenarios month by month (a shorter profile simply stops contributing).
+combine_forecasts <- function(fcs) {
+  fcs <- Filter(function(x) !is.null(x) && nrow(x), fcs)
+  if (!length(fcs)) return(NULL)
+  x <- data.table::rbindlist(lapply(fcs, function(f) f[, .(scenario, month = as.integer(month), qo, qw, qf)]))
+  x[, .(qo = sum(qo, na.rm = TRUE), qw = sum(qw, na.rm = TRUE), qf = sum(qf, na.rm = TRUE)), by = .(scenario, month)][order(scenario, month)]
+}
+
 profile_rows <- function(pf, pkey) {
   if (is.null(pf) || !nrow(pf)) return(NULL)
   x <- pf[profile_key(well, sand, interval_id) == pkey]

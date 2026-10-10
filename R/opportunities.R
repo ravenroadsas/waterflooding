@@ -700,6 +700,26 @@ opps_for_pattern <- function(summary, res, pat, asof = max(res$months)) {
   summary[pattern %in% pat | well %in% w]
 }
 
+# Save a job: the combination of the opportunities the engineer picked on one well. Each picked
+# opportunity gets a row with the same job id and, if executed, moves to `executed`; profiles not
+# frozen at validation are frozen now so the job is judged against what it executed. Opportunities
+# not picked are untouched and stay as identified.
+log_job <- function(con, op, keys, date, status = "EXECUTED", notes = "", job = "", profiles = NULL) {
+  keys <- unique(keys)
+  if (!length(keys)) stop("no opportunities selected")
+  s <- op$summary[key %in% keys]
+  if (data.table::uniqueN(s$well) != 1) stop("a job is done on one well")
+  if (is.null(job) || !nzchar(trimws(job))) job <- sprintf("JOB-%s-%s", s$well[1], format(Sys.time(), "%Y%m%d%H%M%S"))
+  for (k in keys) {
+    x <- op$records[[k]]; row <- s[key == k]
+    if (is.null(store_frozen(con, k)) && identical(row$gain_src, "PROFILE")) store_freeze_forecast(con, k, profile_rows(profiles, row$fkey))
+    store_add_intervention(con, x$well, row$pattern, x$sand, date, action_job(x$action), status, notes, k, x$interval, job)
+    if (toupper(status) == "EXECUTED") store_set_state(con, k, status = "executed",
+      comment = sprintf("%s %s, %s (%d of the job)", action_job(x$action), format(as.Date(date)), job, length(keys)))
+  }
+  job
+}
+
 # Move decisions stored under v2 keys (type|pattern|unit) to the well keys.
 store_migrate_keys <- function(con, summary) {
   if (!nrow(summary)) return(invisible(0))

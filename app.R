@@ -121,7 +121,7 @@ server <- function(input, output, session) {
     o
   })
 
-  focus <- reactiveVal(NULL); sel_opp <- reactiveVal(NULL); p360_pat <- reactiveVal(NULL); w360_well <- reactiveVal(NULL)
+  focus <- reactiveVal(NULL); sel_opp <- reactiveVal(NULL); p360_pat <- reactiveVal(NULL); w360_well <- reactiveVal(NULL); job_req <- reactiveVal(NULL)
   open_w360 <- function(w) {
     if (is.null(w) || !length(w) || is.na(w) || !nzchar(w)) return()
     w <- as.character(w); w360_well(w)
@@ -148,7 +148,7 @@ server <- function(input, output, session) {
 
   ctx <- list(ds = reactive(rv$ds), res = res, asof = asof, series = series, series_all = series_all, scope_series = scope_series,
               snap = snap, ml = ml, units_snap = units_snap, opps = opps, settings = settings, sands = reactive(input$sands),
-              color_by = reactive(input$color_by %||% "util"), focus = focus, sel_opp = sel_opp, open_p360 = open_p360, open_opp = open_opp, open_w360 = open_w360,
+              color_by = reactive(input$color_by %||% "util"), focus = focus, sel_opp = sel_opp, open_p360 = open_p360, open_opp = open_opp, open_w360 = open_w360, job_req = job_req,
               con = con, store_tick = store_tick, proto_tick = proto_tick)
 
   output$asof_label <- renderUI(div(class = "wf-asof-value", fmt_month(asof())))

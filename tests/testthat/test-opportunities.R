@@ -110,3 +110,25 @@ test_that("store freezes forecasts and moves v2 pattern keys to well keys", {
   store_add_intervention(con, "PRD-07", NA, "B", as.Date("2026-08-01"), "ADPERF", "EXECUTED", "", "ADPERF|PRD-07|B|INT001", "INT001", "JOB-1")
   expect_equal(store_interventions(con)$interval_id, "INT001")
 })
+
+test_that("a job executes only the opportunities picked; the rest stay identified", {
+  con <- store_open(tempfile(fileext = ".sqlite"))
+  on.exit(DBI::dbDisconnect(con))
+  op <- demo$op
+  sat <- op$summary[well == "SAT-01" & action == "ADPERF"]
+  expect_equal(nrow(sat), 5)                       # five intervals with potential in one well
+  pick <- c("ADPERF|SAT-01|B|INT001", "ADPERF|SAT-01|A|INT003")
+  job <- log_job(con, op, pick, as.Date("2026-08-01"), "EXECUTED", "open the two best", "JOB-SAT01-A", demo$ds$profiles)
+  expect_equal(job, "JOB-SAT01-A")
+  s <- apply_states(op$summary, store_states(con))[well == "SAT-01" & action == "ADPERF"]
+  expect_setequal(s[status == "executed", key], pick)
+  expect_true(all(as.character(s[!key %in% pick, status]) == as.character(s[!key %in% pick, auto_status])))
+  iv <- store_interventions(con)
+  expect_equal(nrow(iv), 2); expect_equal(unique(iv$job), "JOB-SAT01-A")
+  # each executed opportunity carries its frozen forecast; the job forecast is their sum
+  fr <- combine_forecasts(lapply(pick, function(k) store_frozen(con, k)))
+  b1 <- fr[scenario == "Base" & month == 1]
+  expect_equal(b1$qo, 210 + 140)
+  expect_equal(b1$qf, (210 + 290) + (140 + 160))
+  expect_error(log_job(con, op, c("ADPERF|SAT-01|B|INT001", "ADPERF|PRD-07|B|INT001"), as.Date("2026-08-01")), "one well")
+})
