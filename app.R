@@ -1,4 +1,4 @@
-# FloodPulse v2: waterflood surveillance (LCI dimensionless methodology) -------------------
+# FloodPulse v3: waterflood surveillance (LCI dimensionless methodology) + well-centric opportunities -------------------
 # Run with: shiny::runApp()  or  Rscript -e 'shiny::runApp(port = 3838)'
 # Environment: WF_DATA_DIR (input folder, default data/demo), WF_DB (SQLite store),
 #              ANTHROPIC_API_KEY / WF_AI_MODEL (optional AI drafting).
@@ -18,8 +18,8 @@ wf_theme <- bs_theme(version = 5, bg = pal$bg, fg = pal$text, primary = "#22d3ee
   "border-radius" = "10px", "card-bg" = pal$panel, "card-border-color" = pal$line)
 
 ui <- page_navbar(
-  title = tags$span(class = "wf-brand", tags$span(class = "wf-logo", HTML("&#x1F4A7;")), "FloodPulse", tags$small("v2 · waterflood surveillance")),
-  id = "nav", theme = wf_theme, fillable = FALSE, window_title = "FloodPulse v2",
+  title = tags$span(class = "wf-brand", tags$span(class = "wf-logo", HTML("&#x1F4A7;")), "FloodPulse", tags$small("v3 · reservoir surveillance")),
+  id = "nav", theme = wf_theme, fillable = FALSE, window_title = "FloodPulse v3",
   header = tags$head(tags$link(rel = "stylesheet", href = "styles.css")),
   sidebar = sidebar(width = 280, open = "desktop", class = "wf-sidebar",
     div(class = "wf-asof", div(class = "wf-side-label", "As of"), uiOutput("asof_label"),
@@ -33,6 +33,9 @@ ui <- page_navbar(
     div(class = "wf-side-label", "Focus pattern"),
     div(class = "wf-inline", selectizeInput("focus_sel", NULL, choices = NULL, width = "100%", options = list(placeholder = "pattern")),
         actionButton("focus_go", "360", class = "btn-sm btn-primary", title = "Open Pattern 360")),
+    div(class = "wf-side-label", "Well"),
+    div(class = "wf-inline", selectizeInput("well_sel", NULL, choices = NULL, width = "100%", options = list(placeholder = "well")),
+        actionButton("well_go", "360", class = "btn-sm btn-primary", title = "Open Well 360")),
     uiOutput("side_signals"),
     div(class = "wf-side-foot", uiOutput("dataset_label"))),
   nav_panel(tags$span(tags$i(class = "wf-n", "1"), "Maturity"), value = "maturity", maturity_ui()),
@@ -88,6 +91,7 @@ server <- function(input, output, session) {
     s <- sort(unique(r$sand_props$sand)); updateCheckboxGroupInput(session, "sands", choices = s, selected = s, inline = TRUE)
     updateSelectInput(session, "scope_area", choices = c("All areas" = "", sort(unique(r$pat_map$area))))
     updateSelectizeInput(session, "focus_sel", choices = sort(r$props$pattern), server = TRUE)
+    updateSelectizeInput(session, "well_sel", choices = sort(unique(r$well$well)), server = TRUE)
   })
 
   asof <- reactive({ r <- res(); req(r); r$months[min(max(input$asof_idx, 1), length(r$months))] })
@@ -112,11 +116,20 @@ server <- function(input, output, session) {
     store_tick()
     o <- tryCatch(generate_opportunities(res(), series(), asof(), settings()),
                   error = function(e) { showNotification(paste("Opportunity rules:", conditionMessage(e)), type = "error"); list(summary = data.table(), records = list()) })
+    if (isTRUE(store_migrate_keys(con, o$summary) > 0)) showNotification("Decisions stored under v2 pattern keys moved to their well targets")
     o$summary <- apply_states(o$summary, store_states(con))
     o
   })
 
-  focus <- reactiveVal(NULL); sel_opp <- reactiveVal(NULL); p360_pat <- reactiveVal(NULL)
+  focus <- reactiveVal(NULL); sel_opp <- reactiveVal(NULL); p360_pat <- reactiveVal(NULL); w360_well <- reactiveVal(NULL)
+  open_w360 <- function(w) {
+    if (is.null(w) || !length(w) || is.na(w) || !nzchar(w)) return()
+    w <- as.character(w); w360_well(w)
+    m <- res()$well_master[well == w]
+    crumb <- if (nrow(m)) Filter(function(x) !is.na(x) && nzchar(x), unlist(m[1, intersect(c("orgunit", "contract", "field", "structure", "substructure"), names(m)), with = FALSE])) else character()
+    showModal(w360_modal(w, crumb))
+  }
+  observeEvent(input$well_go, open_w360(input$well_sel))
   open_p360 <- function(p) {
     if (is.null(p) || !length(p) || is.na(p)) return()
     p <- as.character(p); focus(p); p360_pat(p)
@@ -135,13 +148,14 @@ server <- function(input, output, session) {
 
   ctx <- list(ds = reactive(rv$ds), res = res, asof = asof, series = series, series_all = series_all, scope_series = scope_series,
               snap = snap, ml = ml, units_snap = units_snap, opps = opps, settings = settings, sands = reactive(input$sands),
-              color_by = reactive(input$color_by %||% "util"), focus = focus, sel_opp = sel_opp, open_p360 = open_p360, open_opp = open_opp,
+              color_by = reactive(input$color_by %||% "util"), focus = focus, sel_opp = sel_opp, open_p360 = open_p360, open_opp = open_opp, open_w360 = open_w360,
               con = con, store_tick = store_tick, proto_tick = proto_tick)
 
   output$asof_label <- renderUI(div(class = "wf-asof-value", fmt_month(asof())))
   output$dataset_label <- renderUI({
     r <- res(); ds <- rv$ds; req(r, ds)
-    tagList(div(strong(ds$name)), div(sprintf("%d patterns · %d wells · %d units", nrow(r$props), uniqueN(r$well$well), uniqueN(r$sand_props$sand))),
+    tagList(div(strong(ds$name)), div(sprintf("%d patterns · %d wells (%d outside patterns) · %d units", nrow(r$props), uniqueN(r$well$well),
+                                              length(setdiff(unique(r$well$well), r$alloc$well)), uniqueN(r$sand_props$sand))),
             div(paste(fmt_month(min(r$months)), "–", fmt_month(max(r$months)))),
             div(class = "small", if (ai_available()) "AI drafting on" else "AI drafting off"))
   })
@@ -157,6 +171,7 @@ server <- function(input, output, session) {
   velocity_server(input, output, session, ctx)
   opportunities_server(input, output, session, ctx)
   p360_server(input, output, session, ctx, p360_pat)
+  w360_server(input, output, session, ctx, w360_well)
   data_server(input, output, session, ctx)
 }
 

@@ -188,7 +188,7 @@ maturity_server <- function(input, output, session, ctx) {
 
   reg <- shiny::reactive({
     sn <- data.table::copy(ctx$snap()); op <- ctx$opps()$summary
-    nxt <- if (nrow(op)) op[, .(nxt = paste(unique(paste0(type, " ", opp_types[type])), collapse = "; ")), by = pattern] else data.table::data.table(pattern = character(), nxt = character())
+    nxt <- if (nrow(op)) op[!is.na(pattern), .(nxt = paste(unique(paste(action_label(action), well)), collapse = "; ")), by = pattern] else data.table::data.table(pattern = character(), nxt = character())
     sn <- merge(sn, nxt, by.x = "entity", by.y = "pattern", all.x = TRUE)
     data.table::setorder(sn, -dwi)
     sn[, .(Pattern = entity, Area = area, Stage = as.character(stage), DWI = round(dwi, 2), `Sec RF %` = round(100 * sec_rf, 1),

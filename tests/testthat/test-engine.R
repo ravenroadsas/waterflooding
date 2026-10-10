@@ -103,8 +103,8 @@ test_that("demo field: opportunities, clusters, reconciliation and store work en
   expect_false(any(ds$issues$severity == "error"))
   res <- run_engine(ds); s <- aggregate_level(res, "pattern"); a <- max(res$months)
   op <- generate_opportunities(res, s, a)
-  expect_true(all(c("A", "B", "C", "E", "F") %in% op$summary$type))
-  expect_true("B|P13|-" %in% op$summary$key)                     # injectivity loss planted in the demo
+  expect_true(all(c("A", "B", "C", "E", "F") %in% unlist(strsplit(op$summary$rules, ", "))))
+  expect_true("STIM_INJ|INJ-13|-|-" %in% op$summary$key)          # injectivity loss planted in P13, on its injector
   expect_true(all(op$summary[auto_status == "candidate", n_fam] >= 2))
   sn <- pattern_snapshot(res, s, a)
   ml <- ml_cluster(sn); expect_true(ml$k >= 2 && nrow(ml$assign) == 15)

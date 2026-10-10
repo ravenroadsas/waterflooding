@@ -97,13 +97,18 @@ wf_schema <- list(
     )
   ),
   hierarchy = list(
-    title = "Hierarchy: field, area, pattern, well", role = "optional", grain = "Pattern x well",
-    doc = "Area grouping, well type and coordinates (maps, area-relative ranking, heterogeneity index).",
+    title = "Hierarchy: orgunit, contract, field, structure, pattern, well", role = "optional", grain = "Pattern x well",
+    doc = paste("ORGUNIT > CONTRACT > FIELD > STRUCTURE > SUBSTRUCTURE (lower levels optional), area grouping, well type and coordinates.",
+                "Wells without a pattern are listed with an empty pattern: they are produced on primary."),
     sheet_aliases = c("hierarchy", "jerarquia", "patterns_master", "wellmaster", "tree"),
     cols = list(
+      col_spec("orgunit", "chr", FALSE, c("org_unit", "unidad_organizacional", "business_unit", "asset")),
+      col_spec("contract", "chr", FALSE, c("contrato", "block_contract")),
       col_spec("field", "chr", FALSE, c("campo")),
+      col_spec("structure", "chr", FALSE, c("estructura")),
+      col_spec("substructure", "chr", FALSE, c("subestructura", "sub_structure")),
       col_spec("area", "chr", FALSE, c("block", "sector", "bloque")),
-      col_spec("pattern", "chr", aliases = c("patron")),
+      col_spec("pattern", "chr", FALSE, c("patron")),
       col_spec("well", "chr", aliases = c("pozo")),
       col_spec("well_type", "chr", FALSE, c("type", "tipo", "role")),
       col_spec("x", required = FALSE, aliases = c("x_coord", "easting")),
@@ -112,12 +117,13 @@ wf_schema <- list(
   ),
   baseline = list(
     title = "Baseline: waterflood start per pattern", role = "optional", grain = "Pattern",
-    doc = "Secondary-recovery baseline. Without it, the first injection month is used.",
+    doc = "Secondary-recovery baseline per pattern. Without it, the first injection month is used. Method: waterflood (default), polymer, gas ...",
     sheet_aliases = c("baseline", "patternwaterfloodbaseline", "wf_start", "linea_base"),
     cols = list(
       col_spec("pattern", "chr", aliases = c("patron")),
       col_spec("wf_start", "date", aliases = c("start", "fecha_inicio", "waterflood_start")),
-      col_spec("np_primary", required = FALSE, aliases = c("np_base", "primary_np"), unit = "stb")
+      col_spec("np_primary", required = FALSE, aliases = c("np_base", "primary_np"), unit = "stb"),
+      col_spec("method", "chr", FALSE, c("mechanism", "metodo", "process", "drive"))
     )
   ),
   prototypes = list(
@@ -168,6 +174,83 @@ wf_schema <- list(
       col_spec("status", "chr", FALSE, c("estado")),
       col_spec("lift", "chr", FALSE, c("lift_type", "sla")),
       col_spec("dfl", required = FALSE, aliases = c("fluid_level", "nivel", "submergence"), unit = "ft")
+    )
+  ),
+  # ---- single-well analysis and other studies (opportunity sources) ----
+  intervals = list(
+    title = "Intervals: single-well analysis (INTERVALOS)", role = "optional", grain = "Well x unit x interval",
+    doc = paste("One row per well, unit and interval from the producer analysis. Closed or partly open intervals are",
+                "potential additional perforations (ADPERF). Rates are the interval on its own; intervals add up."),
+    sheet_aliases = c("intervals", "intervalos", "new_opportunities", "nuevas_oportunidades", "well_intervals"),
+    cols = list(
+      col_spec("orgunit", "chr", FALSE, c("org_unit")),
+      col_spec("field", "chr", FALSE, c("campo")),
+      col_spec("well", "chr", aliases = c("pozo")),
+      col_spec("sand", "chr", aliases = c("unit", "unidad", "arena")),
+      col_spec("interval_id", "chr", aliases = c("intervalo_id", "intervalo", "interval")),
+      col_spec("top_ft", required = FALSE, aliases = c("top", "tope"), unit = "ft"),
+      col_spec("base_ft", required = FALSE, aliases = c("base", "bottom"), unit = "ft"),
+      col_spec("estado", "chr", FALSE, c("estado_apertura", "status", "opening_status")),
+      col_spec("h_net_ft", required = FALSE, aliases = c("h_net", "hnet", "net_pay"), unit = "ft"),
+      col_spec("kabs_md", required = FALSE, aliases = c("kabs", "k_md", "k"), unit = "mD"),
+      col_spec("phi", required = FALSE, aliases = c("porosity"), unit = "fraction"),
+      col_spec("sw_las", required = FALSE, aliases = c("sw_log", "sw"), unit = "fraction"),
+      col_spec("kh_md_ft", required = FALSE, aliases = c("kh"), unit = "mD.ft"),
+      col_spec("area_ac", required = FALSE, aliases = c("area", "voronoi_area"), unit = "acre"),
+      col_spec("ooip_stb", required = FALSE, aliases = c("ooip", "stoiip", "poes"), unit = "stb"),
+      col_spec("rf", required = FALSE, aliases = c("recovery_factor", "fr"), unit = "fraction"),
+      col_spec("eur_stb", required = FALSE, aliases = c("eur"), unit = "stb"),
+      col_spec("np_well_stb", required = FALSE, aliases = c("np_total_pozo_stb", "np_total_pozo", "np_well"), unit = "stb"),
+      col_spec("np_ooip", required = FALSE, aliases = c("np_ooip_ratio"), unit = "fraction"),
+      col_spec("sw_act", required = FALSE, aliases = c("sw_actual", "sw_current"), unit = "fraction"),
+      col_spec("bsw0_pct", required = FALSE, aliases = c("bsw_inicial_pct", "bsw_inicial", "bsw"), unit = "%"),
+      col_spec("qo0", required = FALSE, aliases = c("qo_inicial_bopd", "qo_inicial"), unit = "bopd"),
+      col_spec("qw0", required = FALSE, aliases = c("qw_inicial_bwpd", "qw_inicial"), unit = "bwpd"),
+      col_spec("qf0", required = FALSE, aliases = c("qf_inicial_bfpd", "qf_inicial"), unit = "bfpd"),
+      col_spec("qa", "chr", FALSE, c("qa_resultado", "qa_result"))
+    )
+  ),
+  profiles = list(
+    title = "Profiles: monthly forecast by scenario (PERFILES_MENSUALES)", role = "optional", grain = "Well x unit x interval x scenario x month",
+    doc = paste("Bajo / Base / Alto monthly profiles (hyperbolic decline, constant liquid per scenario). qw0 is the initial water",
+                "PRODUCTION rate of the scenario (qwi_bwpd in the source), not injection. Any source can deliver profiles with the same keys."),
+    sheet_aliases = c("profiles_monthly", "perfiles_mensuales", "monthly_profiles", "well_profiles", "forecast_profiles"),
+    cols = list(
+      col_spec("orgunit", "chr", FALSE, c("org_unit")),
+      col_spec("field", "chr", FALSE, c("campo")),
+      col_spec("well", "chr", aliases = c("pozo")),
+      col_spec("sand", "chr", FALSE, c("unit", "unidad", "arena")),
+      col_spec("interval_id", "chr", FALSE, c("intervalo_id", "intervalo", "interval")),
+      col_spec("scenario", "chr", aliases = c("escenario", "case")),
+      col_spec("month", aliases = c("mes", "t")),
+      col_spec("qoi", required = FALSE, aliases = c("qoi_bopd"), unit = "bopd"),
+      col_spec("qw0", required = FALSE, aliases = c("qwi_bwpd", "qwi"), unit = "bwpd"),
+      col_spec("qo", required = FALSE, aliases = c("qo_perfil_bopd", "qo_perfil"), unit = "bopd"),
+      col_spec("qw", required = FALSE, aliases = c("qw_perfil_bwpd", "qw_perfil"), unit = "bwpd"),
+      col_spec("qf", required = FALSE, aliases = c("qf_perfil_bfpd", "qf_perfil"), unit = "bfpd"),
+      col_spec("b", required = FALSE, aliases = c("b_exp", "b_hyp")),
+      col_spec("di", required = FALSE, aliases = c("di_por_mes", "di_month"), unit = "1/month")
+    )
+  ),
+  findings = list(
+    title = "Findings: other analyses (injectors, field studies ...)", role = "optional", grain = "Source x well x action x evidence row",
+    doc = paste("Evidence delivered by any other analysis. Rows with the same action, well, unit and interval become one",
+                "opportunity (merged with the app's own findings). Family: M maturity, V velocity, U unit, S spatial, O operations."),
+    sheet_aliases = c("findings", "hallazgos", "external_findings", "other_analyses", "estudios"),
+    cols = list(
+      col_spec("source", "chr", aliases = c("fuente", "analysis", "analisis", "study")),
+      col_spec("well", "chr", aliases = c("pozo")),
+      col_spec("sand", "chr", FALSE, c("unit", "unidad", "arena")),
+      col_spec("interval_id", "chr", FALSE, c("intervalo_id", "intervalo", "interval")),
+      col_spec("action", "chr", aliases = c("accion", "intervention", "job", "type")),
+      col_spec("family", "chr", FALSE, c("familia", "evidence_family")),
+      col_spec("metric", "chr", FALSE, c("variable", "metrica")),
+      col_spec("value", required = FALSE, aliases = c("valor")),
+      col_spec("reference", required = FALSE, aliases = c("referencia", "threshold")),
+      col_spec("unit_label", "chr", FALSE, c("units", "unidades", "uom")),
+      col_spec("comment", "chr", FALSE, c("comentario", "text", "note")),
+      col_spec("gain_bopd", required = FALSE, aliases = c("gain", "qo_gain", "incremental_bopd"), unit = "bopd"),
+      col_spec("date", "date", FALSE, c("fecha", "as_of"))
     )
   ),
   # ---- derived tables: optional, reconciliation only ----

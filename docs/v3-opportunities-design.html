@@ -121,7 +121,7 @@ td.k{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
    <ul>
     <li>Key is <code>action|well|unit|interval</code>. A pattern finding is projected onto the wells that carry it.</li>
     <li>Three lenses produce findings: <span class="tag t-pat">PATTERN</span> <span class="tag t-well">WELL</span> <span class="tag t-field">FIELD</span>. Findings on the same target merge into one opportunity with several families of evidence.</li>
-    <li>The drive mechanism per field and unit switches lenses and rules on or off.</li>
+    <li>Membership in a waterflood pattern sets the drive; everything outside the patterns is primary. Drive switches rules on or off.</li>
     <li>Gain comes from the Bajo/Base/Alto monthly profiles where they exist, otherwise from the waterflood fit or a decline fit.</li>
     <li>Rule D becomes support evidence attached to well-interval opportunities.</li>
    </ul>
@@ -161,13 +161,13 @@ td.k{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
   <tr><th>Intervals (25)</th><th>Used for</th></tr>
   <tr><td class="k">ORGUNIT FIELD WELL UNIT intervalo_id</td><td>target key; drive context lookup</td></tr>
   <tr><td class="k">top_ft base_ft</td><td>depth strip in Well 360; overlap check with open intervals</td></tr>
-  <tr><td class="k">estado_apertura</td><td>action: cerrado → OPEN or REOPEN · parcial → EXTEND · abierto → no opening action, WSO screening</td></tr>
+  <tr><td class="k">estado_apertura</td><td>cerrado (proposed from the logs, may never have been open) or parcial → ADPERF · abierto → no opening action, WSO screening</td></tr>
   <tr><td class="k">h_net_ft kabs_md phi sw_las kh_md_ft</td><td>family U (interval quality vs well and unit percentiles)</td></tr>
   <tr><td class="k">area_ac</td><td>family S (drainage left, Voronoi)</td></tr>
   <tr><td class="k">ooip_stb rf eur_stb</td><td>stake; EUR check against profile cumulative</td></tr>
   <tr><td class="k">np_total_pozo_stb np_ooip_ratio sw_actual</td><td>family M (depletion of the interval); cross-check with pattern unit DWI</td></tr>
   <tr><td class="k">bsw_inicial_pct qo/qw/qf_inicial</td><td>headline rates; water handling</td></tr>
-  <tr><td class="k">qa_resultado</td><td>gate: not OK → capped at <code>screening_only</code> and listed as a data gap</td></tr>
+  <tr><td class="k">qa_resultado</td><td>status of the correction function: not OK means the estimate was corrected because the standard method was incoherent. Shown on the record and added as a validation item; not a gate</td></tr>
  </table></div>
  <div class="tbl"><table>
   <tr><th>Profiles (14)</th><th>Used for</th></tr>
@@ -194,7 +194,7 @@ td.k{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
 <section id="drive">
  <div class="eyebrow">4 · Drive mechanism</div>
  <h2>Lenses switch on from data and drive</h2>
- <p>A small optional table <code>Drive</code> (Field, Unit, Mechanism, Start) declares how each field or unit is produced: <code>primary</code>, <code>waterflood</code>, <code>polymer</code>, <code>gas</code>, <code>steam</code>, <code>other</code>. Without it the app infers waterflood from Baseline and injection, and primary otherwise. A rule runs only when its data are present and its drive matches.</p>
+ <p><b>Decided:</b> the waterflood pattern table defines the drive. A well (and unit) allocated to a pattern under injection is in that pattern's process: <code>waterflood</code> by default, or the optional <code>Method</code> column of Baseline (polymer, gas ...). Everything not in a pattern is <code>primary</code>. A rule runs only when its data are present and its drive matches.</p>
  <div class="tbl"><table>
   <tr><th>Rule</th><th>Lens</th><th>Well action produced</th><th>Waterflood</th><th>Primary</th><th>Other injection (polymer, gas)</th></tr>
   <tr><td class="k">A</td><td><span class="tag t-pat">PATTERN</span></td><td>ISOLATE or VRF down on the injector unit</td><td class="on">on</td><td class="off">off</td><td class="part">on, own prototype</td></tr>
@@ -351,8 +351,8 @@ td.k{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
  <h2>Files and phases, after this design is approved</h2>
  <div class="tbl"><table>
   <tr><th>Phase</th><th>Work</th><th>Files</th></tr>
-  <tr><td class="k">1 · data</td><td>Intervals, Profiles, Drive specs with aliases; ORGUNIT level; validation checks; demo intervals for 6 wells, including 2 primary wells</td><td>schema.R, io.R, demo_data.R, tests</td></tr>
-  <tr><td class="k">2 · engine</td><td>findings layer; pattern rules re-targeted to wells; W1–W4; projection and merge; drive gating; forecast sources and score</td><td>opportunities.R (split into findings.R and opportunities.R), forecast.R (new)</td></tr>
+  <tr><td class="k">1 · data</td><td>Intervals, Profiles, Findings with aliases; ORGUNIT › CONTRACT › FIELD › STRUCTURE › SUBSTRUCTURE; validation checks; demo intervals for 6 wells, including 2 primary wells</td><td>schema.R, io.R, demo_data.R, tests</td></tr>
+  <tr><td class="k">2 · engine</td><td>findings layer; pattern rules re-targeted to wells; W1–W4; projection and merge; drive gating; forecast sources and score</td><td>opportunities.R, forecast.R (new), econ.R (hook)</td></tr>
   <tr><td class="k">3 · store</td><td>new key; jobs, forecasts_frozen tables; one-time migration of v2 keys <code>type|pattern|sand</code> to the projected well key</td><td>store.R</td></tr>
   <tr><td class="k">4 · UI</td><td>portfolio grouped by well, lens and drive filters, decision record with fan chart and checks, Jobs tab, Well 360 drawer</td><td>mod_opportunities.R, mod_w360.R (new), mod_p360.R, app.R</td></tr>
   <tr><td class="k">5 · evaluation</td><td>Arps baseline, actual vs frozen Base, verdicts, calibration factor and P(success)</td><td>forecast.R, mod_opportunities.R</td></tr>
@@ -361,17 +361,17 @@ td.k{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
 </section>
 
 <section id="questions">
- <div class="eyebrow">9 · To confirm</div>
- <h2>Open questions</h2>
+ <div class="eyebrow">9 · Decisions</div>
+ <h2>Answers that shaped the build</h2>
  <ol class="q">
-  <li><div><b>qa_resultado values.</b> Which values exist, and which ones mean the interval is usable? Proposal: <code>OK</code> passes, anything else caps the opportunity at screening.</div></li>
-  <li><div><b>estado_apertura.</b> Does INTERVALOS list every interval of the well, including never-perforated ones as <code>cerrado</code>? If so, how do we tell "never opened" (OPEN) from "isolated earlier" (REOPEN)? Proposal: use the Interventions history; without it, call both OPEN.</div></li>
-  <li><div><b>Incremental vs total.</b> Is qo_inicial the rate of the interval alone, so the well gain is that rate (commingled), or does opening it change the rates of the open intervals? Proposal: treat it as incremental for now.</div></li>
-  <li><div><b>qw_perfil increment.</b> The image says this method is still to be agreed. Until then the app reads qw_perfil as delivered and only checks qf = qo + qw.</div></li>
-  <li><div><b>ORGUNIT.</b> Is it above FIELD (asset or business unit), and is it needed as a filter and a join key, or only as a label?</div></li>
-  <li><div><b>Economics.</b> Do you want a simple value (oil price, lifting cost per barrel of water, cost per job type) in Settings now, or ranking on volumes only for the pilot?</div></li>
-  <li><div><b>Drive table.</b> Can you provide Field, Unit, Mechanism, Start, or should the app infer the drive from injection data only?</div></li>
-  <li><div><b>Other lenses.</b> Besides single producer analysis, will there be single injector analysis or field-level studies (infill, conversion) delivering their own tables? The finding layer accepts them, but each needs its own mapping.</div></li>
+  <li><div><b>qa_resultado</b> is the result of a function that corrects the estimate when the standard method gives an incoherent result. A corrected estimate is shown on the record and adds a review item; it does not cap the status.</div></li>
+  <li><div><b>Closed intervals</b> come from the log algorithm and may never have been open. Closed and partly open intervals are potential additional perforations (ADPERF).</div></li>
+  <li><div><b>Interval rates are the interval on its own</b>, and intervals add up: opening interval 2 adds its rate to interval 1. The gain of an ADPERF is the interval's Base rate.</div></li>
+  <li><div><b>qw_perfil increment</b>: read as delivered until the method is agreed; the app checks qf = qo + qw and constant liquid per scenario.</div></li>
+  <li><div><b>Hierarchy</b>: ORGUNIT › CONTRACT › FIELD › STRUCTURE › SUBSTRUCTURE (lower levels optional), all filters in the portfolio.</div></li>
+  <li><div><b>No economics for now.</b> Ranking uses volumes; a private function plugs in through <code>WF_ECON_FILE</code> (<code>wf_econ(summary, forecasts)</code>).</div></li>
+  <li><div><b>Drive</b> comes from the waterflood pattern table; everything outside the patterns is primary.</div></li>
+  <li><div><b>Other analyses</b> (injectors, field studies ...) are integrated through the <code>Findings</code> table: one lens per source, merged on the same well target, with forecasts from <code>Profiles</code> under the same keys.</div></li>
  </ol>
 </section>
 </div>

@@ -58,9 +58,12 @@ pattern_baseline <- function(pm, baseline, method = "start") {
   first_inj <- pm[winj > 0, .(first_inj = min(date)), by = pattern]
   b <- merge(unique(pm[, .(pattern)]), first_inj, by = "pattern", all.x = TRUE)
   if (!is.null(baseline) && nrow(baseline)) {
-    b <- merge(b, baseline[, .(pattern, wf_start, np_primary)], by = "pattern", all.x = TRUE)
-  } else b[, `:=`(wf_start = as.Date(NA), np_primary = NA_real_)]
+    bl <- data.table::copy(baseline)
+    if (!"method" %in% names(bl)) bl[, method := "waterflood"]
+    b <- merge(b, bl[, .(pattern, wf_start, np_primary, mechanism = tolower(method))], by = "pattern", all.x = TRUE)
+  } else b[, `:=`(wf_start = as.Date(NA), np_primary = NA_real_, mechanism = NA_character_)]
   b[, wf_start := data.table::fcoalesce(wf_start, first_inj)]
+  b[, mechanism := data.table::fifelse(is.na(wf_start), "primary", data.table::fcoalesce(mechanism, "waterflood"))]
   b[, method := method]
   b[]
 }
@@ -128,7 +131,7 @@ run_engine <- function(ds, st = default_settings, extra_protos = NULL) {
 
   list(months = months, well = wv, alloc = al, pattern_well = pw, sand_props = sp, props = pp,
        pm = pm, base = base, protos = protos, assign = assign, units = units, hi = hi,
-       pat_map = pat_map, wells = ds$hierarchy, ds = ds, settings = st)
+       pat_map = pat_map, wells = ds$hierarchy, well_master = ds$well_master, ds = ds, settings = st)
 }
 
 pattern_map <- function(h, patterns) {

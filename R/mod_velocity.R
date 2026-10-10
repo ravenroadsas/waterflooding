@@ -183,8 +183,9 @@ velocity_server <- function(input, output, session, ctx) {
   sig <- shiny::reactive({
     op <- ctx$opps()$summary
     if (!nrow(op)) return(data.table::data.table())
-    op[status == "screening_only", .(Type = sprintf('<b style="color:%s">%s</b> %s', opp_colors[type], type, opp_types[type]),
-                                     Pattern = pattern, Unit = data.table::fcoalesce(sand, ""), Families = families, Key = key)]
+    op[status == "screening_only", .(Action = sprintf('<b style="color:%s">%s</b> %s', action_color(action), action, action_label(action)),
+                                     Well = well, Unit = data.table::fcoalesce(sand, ""), Pattern = data.table::fcoalesce(pattern, "primary"),
+                                     Lens = lenses, Families = families, Key = key)]
   })
   output$vel_signals <- DT::renderDT({
     d <- sig(); if (!nrow(d)) d <- data.table::data.table(Message = "No single-family signals")

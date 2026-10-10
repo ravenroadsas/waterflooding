@@ -17,7 +17,16 @@ default_settings <- list(
   evr_low = 0.80,           # Evol(MB)/Evol(FF) below this: thief zone (fig. 25)
   dfl_high = 1000,          # ft of fluid above pump considered high
   early_dwi = 0.10, mature_dwi = 0.50, mature_wc = 0.80, late_dwi = 1.50, late_wc = 0.95,
+  # single-well analysis (any drive)
+  int_npooip_max = 0.10,    # interval little depleted: Np / OOIP at or below
+  int_sw_max = 0.55,        # interval with mobile oil: Sw actual at or below
+  int_bsw_max = 95,         # new interval useful while initial BSW is below (%)
+  wso_bsw = 97,             # open interval watered out: initial BSW at or above (%)
+  decline_drop = 0.25,      # rate this far below the well's own decline -> stimulation / lift
+  shutin_months = 3,        # months without production -> reactivation candidate
+  min_rate = 5,             # bopd below which well rules are not raised
   w_evidence = 0.40, w_gain = 0.40, w_stake = 0.20,  # priority score weights
+  w_unc = 0.10,             # penalty for the Bajo-Alto spread relative to Base
   lci = c("target_tp", "iwr_low", "iwr_high")
 )
 

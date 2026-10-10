@@ -9,8 +9,10 @@ ai_available <- function() nzchar(Sys.getenv("ANTHROPIC_API_KEY"))
 ai_model <- function() Sys.getenv("WF_AI_MODEL", "claude-opus-5")
 
 ai_system_prompt <- paste(
-  "You are a reservoir engineer reviewing waterflood surveillance evidence with the dimensionless methodology",
-  "(DWI, Sec RF, DWP, DTP, injection/production throughput, IWR, utilization, OPR, WPR).",
+  "You are a reservoir engineer reviewing surveillance evidence for a well intervention (the opportunity's target is always a well,",
+  "unit and interval). Evidence may come from waterflood patterns (dimensionless methodology: DWI, Sec RF, DWP, DTP, throughput, IWR,",
+  "utilization, OPR, WPR), from single-well analysis (interval petrophysics, Np/OOIP, Sw, Bajo/Base/Alto profiles) or from other analyses.",
+  "The field may be on primary: then say that injection evidence does not apply.",
   "Treat surveillance as evidence aggregation: a single anomalous plot is a screening signal, not a recommendation.",
   "Using only the evidence provided, draft a decision record with these sections, in this order:",
   "1. Assessment (state the evidence status: screening_only, candidate or validated_candidate, and why);",
@@ -23,15 +25,18 @@ ai_system_prompt <- paste(
 
 ai_payload <- function(rec, summ_row, pattern_row, settings) {
   list(
-    opportunity = list(type = paste(rec$type, opp_types[[rec$type]]), pattern = rec$pattern, unit = rec$sand,
-                       well = rec$well, evidence_families = names(rec$fam)[rec$fam], status = as.character(summ_row$status),
-                       indicative_gain_bopd = round(rec$gain, 1)),
+    opportunity = list(action = paste(rec$action, action_label(rec$action)), well = rec$well, unit = rec$sand, interval = rec$interval,
+                       lenses = rec$lenses, rules = rec$rules, drive = summ_row$drive, pattern_context = summ_row$pattern,
+                       evidence_families = names(rec$fam)[rec$fam], status = as.character(summ_row$status),
+                       gain_bopd = round(summ_row$gain, 1), forecast_source = summ_row$gain_src,
+                       initial_oil_bajo_base_alto = c(summ_row$qo1_Bajo, summ_row$qo1_Base, summ_row$qo1_Alto),
+                       oil_12m_stb = round(summ_row$np12), water_12m_bbl = round(summ_row$wp12), eur_stb = round(summ_row$stake)),
     evidence_rows = lapply(seq_len(nrow(rec$evidence)), function(i) as.list(rec$evidence[i])),
     engine_text = rec$text,
-    pattern_snapshot = as.list(pattern_row[, intersect(c("entity", "area", "dwi", "sec_rf", "exp_sec_rf", "opr", "wpr", "util",
+    pattern_snapshot = if (!is.null(pattern_row) && nrow(pattern_row)) as.list(pattern_row[, intersect(c("entity", "area", "dwi", "sec_rf", "exp_sec_rf", "opr", "wpr", "util",
                                                           "exp_util", "util_cum", "tp12", "tp12_ago", "prod_tp12", "iwr12", "wc6",
-                                                          "wor6", "loss", "evr", "ve", "stage"), names(pattern_row)), with = FALSE]),
-    settings = settings[c("target_tp", "iwr_low", "iwr_high", "util_window", "judge_dwi")]
+                                                          "wor6", "loss", "evr", "ve", "stage"), names(pattern_row)), with = FALSE]) else NULL,
+    settings = settings[c("target_tp", "iwr_low", "iwr_high", "util_window", "judge_dwi", "int_npooip_max", "int_sw_max", "int_bsw_max")]
   )
 }
 

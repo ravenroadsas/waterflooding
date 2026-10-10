@@ -15,6 +15,12 @@ store_open <- function(path = store_path()) {
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS outcomes (key TEXT, ts TEXT, verdict TEXT, expected TEXT, actual TEXT, notes TEXT)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS prototypes_user (prototype TEXT, version TEXT, dwi REAL, sec_rf REAL, dwp REAL, util REAL, wor REAL, source TEXT, created TEXT)")
   DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS ai_drafts (key TEXT, ts TEXT, model TEXT, text TEXT)")
+  # forecast used for the decision, frozen when the opportunity is validated (post-job comparison)
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS forecasts_frozen (key TEXT, ts TEXT, scenario TEXT, month INTEGER, qo REAL, qw REAL, qf REAL)")
+  # v3: interventions carry the interval and a job id (several opportunities in one rig visit)
+  cols <- DBI::dbListFields(con, "interventions")
+  if (!"interval_id" %in% cols) DBI::dbExecute(con, "ALTER TABLE interventions ADD COLUMN interval_id TEXT")
+  if (!"job" %in% cols) DBI::dbExecute(con, "ALTER TABLE interventions ADD COLUMN job TEXT")
   con
 }
 
@@ -48,9 +54,21 @@ store_checks <- function(con, key) {
 
 store_history <- function(con, key) data.table::as.data.table(DBI::dbGetQuery(con, "SELECT * FROM opp_history WHERE key = ? ORDER BY ts", params = list(key)))
 
-store_add_intervention <- function(con, well, pattern, sand, date, type, status, notes, opp_key) {
-  DBI::dbExecute(con, "INSERT INTO interventions (well, pattern, sand, date, type, status, notes, opp_key, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                 params = list(well, pattern, sand, format(as.Date(date)), toupper(type), toupper(status), notes, opp_key, now_txt()))
+store_add_intervention <- function(con, well, pattern, sand, date, type, status, notes, opp_key, interval_id = NA_character_, job = NA_character_) {
+  na <- function(x) if (is.null(x) || !length(x) || is.na(x) || identical(x, "")) NA_character_ else as.character(x)
+  DBI::dbExecute(con, "INSERT INTO interventions (well, pattern, sand, date, type, status, notes, opp_key, created, interval_id, job) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 params = list(well, na(pattern), na(sand), format(as.Date(date)), toupper(type), toupper(status), notes, opp_key, now_txt(), na(interval_id), na(job)))
+}
+
+store_freeze_forecast <- function(con, key, prof) {
+  DBI::dbExecute(con, "DELETE FROM forecasts_frozen WHERE key = ?", params = list(key))
+  if (is.null(prof) || !nrow(prof)) return(invisible(0))
+  x <- data.frame(key = key, ts = now_txt(), scenario = prof$scenario, month = as.integer(prof$month), qo = prof$qo, qw = prof$qw, qf = prof$qf)
+  DBI::dbWriteTable(con, "forecasts_frozen", x, append = TRUE)
+}
+store_frozen <- function(con, key) {
+  x <- data.table::as.data.table(DBI::dbGetQuery(con, "SELECT * FROM forecasts_frozen WHERE key = ? ORDER BY scenario, month", params = list(key)))
+  if (nrow(x)) x else NULL
 }
 
 store_interventions <- function(con) {

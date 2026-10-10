@@ -11,6 +11,9 @@
 #   P12  most mature, high throughput and utilization              -> cut rate (F-) / isolation (A)
 #   P09  ADPERF in unit D (Jun 2025) with little unit-D injection  -> support (D)
 #   P16  still on primary
+# plus a primary satellite field (SAT-01..06, no patterns; SAT-02 below its decline, SAT-05 shut in),
+# a producer analysis (Intervalos + Perfiles_Mensuales; PRD-07 B INT001 = the example of the source
+# definition: 150 / 1,350 / 1,500) and an injector review delivering Findings.
 
 make_demo_data <- function(seed = 7, start = as.Date("2000-01-01"), end = as.Date("2026-08-01")) {
   set.seed(seed)
@@ -158,6 +161,7 @@ make_demo_data <- function(seed = 7, start = as.Date("2000-01-01"), end = as.Dat
     pats[, .(Field = "Demo Field", Area = area, Pattern = pattern, Well = injector, Well_Type = "INJECTOR", X = (i + 0.5) * sp, Y = (j + 0.5) * sp)],
     merge(merge(corners[, .(pattern, well)], pats[, .(pattern, area)], by = "pattern"), prods[, .(well, x, y)], by = "well")[
       , .(Field = "Demo Field", Area = area, Pattern = pattern, Well = well, Well_Type = "PRODUCER", X = x, Y = y)])
+  hierarchy[, `:=`(Orgunit = "DEMO-OU", Contract = "CT-ALPHA", Structure = paste(Area, "dome"), Substructure = ifelse(Area == "North", "N1", NA_character_))]
   data.table::setorder(hierarchy, Area, Pattern, Well_Type, Well)
 
   baseline <- pats[!is.na(wf_start), .(Pattern = pattern, WF_Start = wf_start)]
@@ -175,10 +179,90 @@ make_demo_data <- function(seed = 7, start = as.Date("2000-01-01"), end = as.Dat
   ws[, `:=`(Status = "ACTIVE", Lift = sample(c("BEAM", "PCP", "ESP"), .N, TRUE, prob = c(.7, .15, .15)),
             DFL = round(ifelse(Well %in% lvl_p, stats::runif(.N, 1300, 1800), stats::runif(.N, 150, 600))))]
 
+  # ---- primary satellite field (no patterns): hyperbolic declines, one well losing rate, one shut in ----
+  sat <- data.table::data.table(well = sprintf("SAT-%02d", 1:6), start_m = as.Date(c("2012-01-01", "2013-06-01", "2015-01-01", "2016-03-01", "2018-01-01", "2019-07-01")),
+                                qi = c(420, 380, 300, 520, 260, 340), di = c(0.035, 0.03, 0.04, 0.045, 0.03, 0.04), b = c(0.6, 0.5, 0.7, 0.5, 0.4, 0.6),
+                                wc0 = c(0.15, 0.2, 0.1, 0.25, 0.1, 0.2), x = c(6200, 6900, 7500, 6500, 7200, 7900), y = c(800, 1300, 900, 2100, 2400, 1800))
+  satp <- sat[, {
+    m <- months[months >= start_m]; t <- seq_along(m) - 1
+    q <- qi / (1 + b * di * t)^(1 / b) * exp(stats::rnorm(length(m), 0, 0.05))
+    wc <- pmin(wc0 + 0.012 * t / 12 * 6, 0.92)
+    if (well == "SAT-02") q[m >= as.Date("2026-02-01")] <- q[m >= as.Date("2026-02-01")] * 0.5   # damage: below its decline
+    if (well == "SAT-05") q[m >= as.Date("2026-04-01")] <- 0                                   # shut in (rod failure)
+    .(Date = m, BOPD = round(q, 1), BWPD = round(ifelse(q > 0, q * wc / (1 - wc), 0), 1), BWIPD = 0)
+  }, by = .(Well = well)]
+  wells <- rbind(wells, satp)
+  data.table::setorder(wells, Well, Date)
+
+  hierarchy <- rbind(hierarchy, sat[, .(Field = "Demo Satellite", Area = "Satellite", Pattern = NA_character_, Well = well, Well_Type = "PRODUCER",
+                                         X = x, Y = y, Orgunit = "DEMO-OU", Contract = "CT-BETA", Structure = "Satellite high", Substructure = NA_character_)])
+  data.table::setcolorder(hierarchy, c("Orgunit", "Contract", "Field", "Structure", "Substructure", "Area", "Pattern", "Well", "Well_Type", "X", "Y"))
+
+  # ---- single-well analysis (INTERVALOS + PERFILES_MENSUALES) ----
+  wa <- demo_well_analysis(wells, months)
+
+  # ---- another analysis delivering findings: an injector review ----
+  findings <- data.table::data.table(
+    Source = "Injector review 2026", Well = c("INJ-09", "INJ-09", "INJ-13"), Unit = c("D", "D", NA), Interval_ID = NA_character_,
+    Action = c("SUPPORT_INJ", "SUPPORT_INJ", "STIM_INJ"), Family = c("O", "U", "O"),
+    Metric = c("Mandrel unit D", "Unit D kh share", "Fall-off skin"), Value = c(4, 0.08, 12), Reference = c(8, 0.15, 2),
+    Units = c("1/64 in", "fraction", "-"), Comment = c("Valve undersized for the design rate", "Low share of injection for its kh", "Damage confirmed by fall-off test"),
+    Gain_bopd = c(NA, NA, NA), Date = as.Date("2026-06-01"))
+
   list(Wells = wells, Alloc = alloc, Vol = vol, Fluids = fluids[, .(Reservoir = reservoir, API = api, Rs = rs, Bo = bo, Bw = bw,
        visco, viscw, Swc = swc, Sor = sor, Krw = krw, Kro = kro, Nw = nw, No = no)],
        InjSand = isd, InjSand_status = stt, Hierarchy = hierarchy, Baseline = baseline,
-       Interventions = interventions, WellStatus = ws)
+       Interventions = interventions, WellStatus = ws, Intervalos = wa$intervals, Perfiles_Mensuales = wa$profiles, Findings = findings)
+}
+
+# Producer analysis for the demo: intervals proposed from the logs (closed = never perforated),
+# open intervals, and Bajo / Base / Alto monthly profiles with constant liquid per scenario.
+demo_well_analysis <- function(wells, months) {
+  spec <- data.table::data.table(
+    ORGUNIT = "DEMO-OU",
+    FIELD = c(rep("Demo Field", 9), rep("Demo Satellite", 5)),
+    WELL = c("PRD-07", "PRD-07", "PRD-08", "PRD-12", "PRD-12", "PRD-13", "PRD-19", "PRD-11", "PRD-24",
+             "SAT-01", "SAT-01", "SAT-03", "SAT-04", "SAT-06"),
+    UNIT = c("B", "C", "D", "B", "A", "C", "B", "E", "A", "B", "C", "B", "A", "C"),
+    intervalo_id = c("INT001", "INT002", "INT001", "INT001", "INT002", "INT001", "INT001", "INT003", "INT001", "INT001", "INT002", "INT001", "INT001", "INT001"),
+    estado_apertura = c("cerrado", "abierto", "cerrado", "parcial", "abierto", "cerrado", "cerrado", "cerrado", "abierto", "cerrado", "abierto", "cerrado", "abierto", "cerrado"),
+    top_ft = c(5210, 5262, 5410, 5196, 5120, 5280, 5225, 5520, 5130, 4820, 4880, 4790, 4710, 4905),
+    h_net_ft = c(26, 18, 14, 22, 30, 20, 12, 9, 28, 24, 16, 18, 26, 14),
+    kabs_md = c(90, 60, 25, 70, 130, 55, 20, 12, 140, 120, 80, 40, 150, 35),
+    phi = c(0.23, 0.22, 0.20, 0.23, 0.25, 0.22, 0.21, 0.19, 0.25, 0.24, 0.22, 0.21, 0.24, 0.2),
+    sw_las = c(0.33, 0.32, 0.36, 0.34, 0.31, 0.33, 0.35, 0.38, 0.30, 0.30, 0.33, 0.36, 0.29, 0.37),
+    area_ac = c(31, 31, 28, 35, 35, 30, 18, 26, 22, 48, 48, 40, 44, 52),
+    np_ooip_ratio = c(0.08, 0.31, 0.05, 0.12, 0.42, 0.07, 0.22, 0.04, 0.45, 0.06, 0.24, 0.09, 0.28, 0.03),
+    sw_actual = c(0.41, 0.66, 0.40, 0.47, 0.74, 0.43, 0.58, 0.42, 0.78, 0.38, 0.55, 0.44, 0.60, 0.39),
+    qo_inicial_bopd = c(150, 40, 60, 95, 18, 120, 30, 25, 12, 210, 70, 85, 60, 110),
+    qw_inicial_bwpd = c(1350, 900, 340, 760, 1180, 880, 970, 75, 1450, 290, 330, 215, 540, 140),
+    qa_resultado = c("OK", "OK", "Corrected: Sw from offset well", "OK", "OK", "OK", "OK", "Corrected: kh capped at P90", "OK", "OK", "OK", "OK", "OK", "OK"))
+  spec[, base_ft := top_ft + round(h_net_ft * 1.15)]
+  spec[, `:=`(kh_md_ft = kabs_md * h_net_ft, qf_inicial_bfpd = qo_inicial_bopd + qw_inicial_bwpd)]
+  spec[, bsw_inicial_pct := round(100 * qw_inicial_bwpd / qf_inicial_bfpd, 1)]
+  spec[, ooip_stb := round(7758 * area_ac * h_net_ft * phi * (1 - sw_las) / 1.12, -2)]
+  spec[, rf := 0.18][, eur_stb := round(ooip_stb * rf * (1 - np_ooip_ratio / 0.5), -2)]
+  npw <- wells[, .(np = sum(BOPD * days_in_month(Date))), by = .(WELL = Well)]
+  spec <- merge(spec, npw, by = "WELL", all.x = TRUE)
+  spec[, np_total_pozo_stb := round(data.table::fcoalesce(np, 0))][, np := NULL]
+  intervals <- spec[, .(ORGUNIT, FIELD, WELL, UNIT, intervalo_id, top_ft, base_ft, estado_apertura, h_net_ft, kabs_md, phi, sw_las, kh_md_ft,
+                        area_ac, ooip_stb, rf, eur_stb, np_total_pozo_stb, np_ooip_ratio, sw_actual, bsw_inicial_pct, qo_inicial_bopd,
+                        qw_inicial_bwpd, qf_inicial_bfpd, qa_resultado)]
+  # monthly profiles for the closed / partly open intervals (iXpantia-style hyperbolic decline, Q liquid constant)
+  T <- 36
+  cand <- spec[estado_apertura != "abierto"]
+  sc <- data.table::data.table(escenario = c("Bajo", "Base", "Alto"), fq = c(2 / 3, 1, 4 / 3), fo = c(1 / 3, 1, 2), b = c(0.6, 0.5, 0.4), di = c(0.06, 0.045, 0.035))
+  profiles <- cand[, {
+    data.table::rbindlist(lapply(seq_len(nrow(sc)), function(k) {
+      z <- sc[k]
+      qf <- round(qf_inicial_bfpd * z$fq); qoi <- round(min(qo_inicial_bopd * z$fo, 0.9 * qf), 1); qwi <- qf - qoi
+      t <- seq_len(T) - 1
+      qo <- round(qoi / (1 + z$b * z$di * t)^(1 / z$b), 1)
+      data.table::data.table(escenario = z$escenario, mes = seq_len(T), qoi_bopd = qoi, qwi_bwpd = qwi, qo_perfil_bopd = qo,
+                             qw_perfil_bwpd = qf - qo, qf_perfil_bfpd = qf, b = z$b, di_por_mes = z$di)
+    }))
+  }, by = .(ORGUNIT, FIELD, WELL, UNIT, intervalo_id)]
+  list(intervals = intervals, profiles = profiles)
 }
 
 # Prototype curves for the demo: the median of the well-behaved patterns, like

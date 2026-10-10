@@ -1,0 +1,4 @@
+Source,Well,Unit,Interval_ID,Action,Family,Metric,Value,Reference,Units,Comment,Gain_bopd,Date
+Injector review 2026,INJ-09,D,,SUPPORT_INJ,O,Mandrel unit D,4,8,1/64 in,Valve undersized for the design rate,,2026-06-01
+Injector review 2026,INJ-09,D,,SUPPORT_INJ,U,Unit D kh share,0.08,0.15,fraction,Low share of injection for its kh,,2026-06-01
+Injector review 2026,INJ-13,,,STIM_INJ,O,Fall-off skin,12,2,-,Damage confirmed by fall-off test,,2026-06-01

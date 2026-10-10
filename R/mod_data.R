@@ -83,7 +83,13 @@ settings_ui <- function() {
       num("evr_low", "Evol ratio threshold (method 2)", st$evr_low, 0.05), num("dfl_high", "High fluid level (ft)", st$dfl_high, 50),
       num("early_dwi", "Stage: developing from DWI", st$early_dwi, 0.05), num("mature_dwi", "Stage: mature from DWI", st$mature_dwi, 0.1),
       num("late_dwi", "Stage: late life from DWI", st$late_dwi, 0.1), num("w_evidence", "Score weight: evidence", st$w_evidence, 0.05),
-      num("w_gain", "Score weight: oil gain", st$w_gain, 0.05), num("w_stake", "Score weight: remaining oil", st$w_stake, 0.05)))))
+      num("w_gain", "Score weight: oil gain", st$w_gain, 0.05), num("w_stake", "Score weight: remaining oil", st$w_stake, 0.05),
+      num("w_unc", "Score penalty: Bajo-Alto spread", st$w_unc, 0.05))),
+      bslib::card_body(htmltools::h6(class = "wf-h6", "Single-well analysis (all drives)"), htmltools::div(class = "wf-settings-grid",
+      num("int_npooip_max", "New interval: Np/OOIP at or below", st$int_npooip_max, 0.01), num("int_sw_max", "New interval: Sw actual at or below", st$int_sw_max, 0.01),
+      num("int_bsw_max", "New interval: initial BSW below (%)", st$int_bsw_max, 1), num("wso_bsw", "Water shut-off: interval BSW at or above (%)", st$wso_bsw, 1),
+      num("decline_drop", "Stimulation / lift: rate below own decline by", st$decline_drop, 0.05), num("shutin_months", "Reactivation: months shut in", st$shutin_months, 1),
+      num("min_rate", "Well rules: minimum oil rate (bopd)", st$min_rate, 1)))))
 }
 
 method_ui <- function() {
@@ -100,7 +106,7 @@ method_ui <- function() {
       "<li>Heterogeneity index = cumulative well volume / area average &minus; 1 (oil and water)</li>",
       "<li>Waterflood fit (SPE-96469): Sec RF = A&middot;(1 &minus; e<sup>&minus;C&middot;DWI</sup>); remaining = A&middot;e<sup>&minus;C&middot;DWI</sup>; forecasts at any TP</li>",
       "<li>Method 2 (SPE-190314 fig. 25): Evol(MB)/Evol(FF) = Sec RF / displacement implied by the current water cut (Welge), against Loss</li></ul>",
-      "<h5>Opportunities</h5><p>Evidence families: maturity, velocity, unit, spatial, operations. One family = screening_only; two or more including maturity or velocity = candidate; validated, executed and evaluated are set by engineers and stored with history.</p>")))))
+      "<h5>Opportunities</h5><p>Every opportunity is a job on a well: action · well · unit · interval. Findings come from the pattern rules (waterflood patterns), the single-well analysis (Intervals + Profiles, all drives), the well history (decline, shut-in) and other analyses (Findings table), and merge on the target. A well outside the waterflood patterns is primary. Evidence families: maturity, velocity, unit, spatial, operations. One family = screening_only; two or more including maturity or velocity = candidate; validated, executed and evaluated are set by engineers and stored with history. Validation freezes the Bajo / Base / Alto forecast; after the job, incremental oil over the pre-job decline is compared with it.</p>")))))
 }
 
 data_server <- function(input, output, session, ctx) {

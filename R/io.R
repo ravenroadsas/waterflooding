@@ -86,10 +86,14 @@ sheet_key <- function(sheet) {
   for (k in names(wf_schema)) {
     if (s %in% norm_name(wf_schema[[k]]$sheet_aliases)) return(k)
   }
+  # otherwise the longest alias the name starts with ("perfiles_mensuales_2026" is not InjSand "perfiles")
+  best <- NA_character_; len <- 0
   for (k in names(wf_schema)) {
-    if (any(startsWith(s, norm_name(wf_schema[[k]]$sheet_aliases)))) return(k)
+    al <- norm_name(wf_schema[[k]]$sheet_aliases)
+    hit <- al[startsWith(s, al)]
+    if (length(hit) && max(nchar(hit)) > len) { best <- k; len <- max(nchar(hit)) }
   }
-  NA_character_
+  best
 }
 
 # Read a workbook with one sheet per table.
@@ -164,25 +168,82 @@ fill_defaults <- function(ds) {
     v[, boi := ifelse(stoiip > 0, hcpv / stoiip, NA_real_)]
   }
   # hierarchy: from alloc when missing; well type inferred from volumes
+  lv <- c("orgunit", "contract", "field", "structure", "substructure", "area")
   if (is.null(ds$hierarchy) && !is.null(ds$alloc)) {
     ds$hierarchy <- unique(ds$alloc[, .(pattern, well)])
-    ds$hierarchy[, `:=`(field = NA_character_, area = NA_character_, well_type = NA_character_, x = NA_real_, y = NA_real_)]
+    for (v in lv) ds$hierarchy[, (v) := NA_character_]
+    ds$hierarchy[, `:=`(well_type = NA_character_, x = NA_real_, y = NA_real_)]
     ds$hierarchy_inferred <- TRUE
   }
+  role <- if (!is.null(ds$wells)) ds$wells[, .(inj = sum(bwipd), prd = sum(bopd + bwpd)), by = well][, .(well, t = ifelse(inj > prd, "I", "P"))] else NULL
   if (!is.null(ds$hierarchy)) {
     h <- ds$hierarchy
-    h[is.na(field) | field == "", field := "Field"]
-    h[is.na(area) | area == "", area := "Area 1"]
+    for (v in lv) if (!v %in% names(h)) h[, (v) := NA_character_]
+    for (v in c(lv, "pattern")) data.table::set(h, which(h[[v]] == ""), v, NA_character_)
+    h[is.na(field), field := "Field"]
+    h[is.na(area), area := data.table::fcoalesce(structure, "Area 1")]
     h[, well_type := toupper(substr(data.table::fcoalesce(well_type, ""), 1, 1))]
-    if (!is.null(ds$wells)) {
-      role <- ds$wells[, .(inj = sum(bwipd), prd = sum(bopd + bwpd)), by = well][, .(well, t = ifelse(inj > prd, "I", "P"))]
+    if (!is.null(role)) {
       h[role, on = "well", inferred := i.t]
       h[!well_type %in% c("P", "I"), well_type := data.table::fcoalesce(inferred, "P")]
       h[, inferred := NULL]
     }
     h[, well_type := ifelse(well_type == "I", "INJECTOR", "PRODUCER")]
-    ds$hierarchy <- h
+    ds$hierarchy <- h[!is.na(pattern)]
+    ds$well_master <- unique(h[, c("well", "well_type", lv, "x", "y"), with = FALSE], by = "well")
+  } else ds$well_master <- data.table::data.table(well = character(), well_type = character())
+  # every producing / injecting well is in the master, even outside patterns (primary)
+  if (!is.null(role)) {
+    miss <- role[!well %in% ds$well_master$well]
+    if (nrow(miss)) ds$well_master <- rbind(ds$well_master, miss[, .(well, well_type = ifelse(t == "I", "INJECTOR", "PRODUCER"),
+                                                                     field = "Field", area = "Area 1")], fill = TRUE)
   }
+  if (!is.null(ds$intervals)) {
+    iv <- ds$intervals
+    est <- iconv(tolower(trimws(data.table::fcoalesce(iv$estado, ""))), to = "ASCII//TRANSLIT")
+    emap <- c(abierto = "abierto", open = "abierto", opened = "abierto", a = "abierto",
+              parcial = "parcial", partial = "parcial", "partially open" = "parcial", p = "parcial",
+              cerrado = "cerrado", closed = "cerrado", c = "cerrado", "no perforado" = "cerrado", "not perforated" = "cerrado")
+    iv[, estado := ifelse(est == "", "cerrado", ifelse(est %in% names(emap), emap[est], est))]
+    iv[is.na(qf0) & !is.na(qo0) & !is.na(qw0), qf0 := qo0 + qw0]
+    iv[is.na(bsw0_pct) & is.finite(qf0) & qf0 > 0, bsw0_pct := 100 * qw0 / qf0]
+    iv[is.na(np_ooip) & is.finite(ooip_stb) & ooip_stb > 0, np_ooip := np_well_stb / ooip_stb]
+    iv[is.na(kh_md_ft) & is.finite(kabs_md) & is.finite(h_net_ft), kh_md_ft := kabs_md * h_net_ft]
+    iv[, qa := trimws(data.table::fcoalesce(qa, ""))]
+    # hierarchy labels from the intervals where the master has none
+    m <- ds$well_master
+    for (v in c("orgunit", "field")) {
+      lab <- unique(iv[!is.na(get(v)) & get(v) != "", c("well", v), with = FALSE], by = "well")
+      if (!v %in% names(m)) m[, (v) := NA_character_]
+      if (nrow(lab)) m[lab, on = "well", (v) := data.table::fifelse(is.na(get(v)) | get(v) == "Field", get(paste0("i.", v)), get(v))]
+    }
+    nw <- setdiff(unique(iv$well), m$well)
+    if (length(nw)) m <- rbind(m, unique(iv[well %in% nw, .(well, well_type = "PRODUCER", orgunit, field, area = "Area 1")], by = "well"), fill = TRUE)
+    ds$well_master <- m
+    ds$intervals <- iv
+  }
+  if (!is.null(ds$profiles)) {
+    pf <- ds$profiles
+    sc <- tolower(trimws(pf$scenario))
+    smap <- c(bajo = "Bajo", low = "Bajo", p90 = "Bajo", pesimista = "Bajo", base = "Base", mid = "Base", p50 = "Base", medio = "Base",
+              alto = "Alto", high = "Alto", p10 = "Alto", optimista = "Alto")
+    pf[, scenario := ifelse(sc %in% names(smap), smap[sc], scenario)]
+    pf[is.na(sand) | sand == "", sand := "-"]
+    pf[is.na(interval_id) | interval_id == "", interval_id := "-"]
+    pf[is.na(qf) & !is.na(qo) & !is.na(qw), qf := qo + qw]
+    data.table::setorder(pf, well, sand, interval_id, scenario, month)
+    ds$profiles <- pf
+  }
+  if (!is.null(ds$findings)) {
+    fd <- ds$findings
+    fd[, action := toupper(trimws(action))]
+    fd[, family := toupper(substr(data.table::fcoalesce(family, ""), 1, 1))]
+    fd[!family %in% c("M", "V", "U", "S", "O"), family := NA_character_]
+    fd[is.na(sand) | sand == "", sand := "-"]
+    fd[is.na(interval_id) | interval_id == "", interval_id := "-"]
+    ds$findings <- fd
+  }
+  if (!is.null(ds$baseline)) ds$baseline[is.na(method) | method == "", method := "waterflood"]
   if (!is.null(ds$prototypes)) ds$prototypes[is.na(version) | version == "", version := "v1"]
   if (!is.null(ds$prototype_assign)) ds$prototype_assign[is.na(version) | version == "", version := "v1"]
   if (!is.null(ds$interventions)) {
@@ -204,8 +265,8 @@ validate_dataset <- function(ds) {
   }
   if (!is.null(w) && !is.null(a)) {
     miss <- setdiff(unique(w$well), a$well)
-    if (length(miss)) add("alloc", "warning", sprintf("%d wells have no allocation (their volumes reach no pattern): %s",
-                                                     length(miss), paste(head(miss, 6), collapse = ", ")))
+    if (length(miss)) add("alloc", "info", sprintf("%d wells are in no waterflood pattern: treated as primary (%s)",
+                                                  length(miss), paste(head(miss, 6), collapse = ", ")))
     last <- a[, .(coeff = coeff[which.max(data.table::fcoalesce(date, as.Date("1800-01-01")))]), by = .(well, pattern)]
     sums <- last[, .(s = sum(coeff)), by = well][abs(s - 1) > 0.02]
     if (nrow(sums)) add("alloc", "warning", sprintf("%d wells whose latest coefficients do not add to 1 (e.g. %s = %.2f)",
@@ -242,10 +303,76 @@ validate_dataset <- function(ds) {
     bad <- setdiff(unique(st$sand), v$sand)
     if (length(bad)) add("injsand_status", "warning", sprintf("Sands not found in Vol: %s", paste(bad, collapse = ", ")))
   }
+  for (x in validate_well_analysis(ds)) I[[length(I) + 1]] <- x
   if (is.null(ds$prototypes)) add("prototypes", "info", "No prototype curves: an analog prototype is built from field data")
   if (is.null(ds$baseline)) add("baseline", "info", "No baseline table: waterflood start = first injection month")
   if (isTRUE(ds$hierarchy_inferred)) add("hierarchy", "info", "No hierarchy: one area, well types inferred, maps disabled")
   data.table::rbindlist(I)
+}
+
+# Checks of the single-well analysis tables (INTERVALOS / PERFILES_MENSUALES).
+# Returns a list of issue rows; the consistency rules come from the source definition.
+validate_well_analysis <- function(ds, tol = 0.01) {
+  I <- list(); add <- function(t, s, m) I[[length(I) + 1]] <<- new_issue(t, s, m)
+  iv <- ds$intervals; pf <- ds$profiles
+  if (!is.null(iv)) {
+    d <- iv[, .N, by = .(well, sand, interval_id)][N > 1]
+    if (nrow(d)) add("intervals", "error", sprintf("%d duplicated well / unit / interval keys (e.g. %s %s %s)", nrow(d), d$well[1], d$sand[1], d$interval_id[1]))
+    bad <- iv[is.finite(top_ft) & is.finite(base_ft) & top_ft >= base_ft]
+    if (nrow(bad)) add("intervals", "warning", sprintf("%d intervals with top at or below base (e.g. %s %s)", nrow(bad), bad$well[1], bad$interval_id[1]))
+    ov <- iv[is.finite(top_ft) & is.finite(base_ft)][order(well, top_ft)][, .(o = any(utils::head(base_ft, -1) > utils::tail(top_ft, -1))), by = well][o == TRUE]
+    if (nrow(ov)) add("intervals", "warning", sprintf("Overlapping intervals in %d wells (%s)", nrow(ov), paste(head(ov$well, 5), collapse = ", ")))
+    odd <- setdiff(unique(iv$estado), c("abierto", "cerrado", "parcial"))
+    if (length(odd)) add("intervals", "warning", sprintf("Unknown estado_apertura values: %s", paste(odd, collapse = ", ")))
+    qq <- iv[is.finite(qf0) & is.finite(qo0) & is.finite(qw0) & abs(qo0 + qw0 - qf0) > tol * pmax(qf0, 1)]
+    if (nrow(qq)) add("intervals", "warning", sprintf("%d intervals where qo + qw differs from qf", nrow(qq)))
+    if (!is.null(ds$vol)) {
+      us <- setdiff(unique(iv$sand), ds$vol$sand)
+      if (length(us)) add("intervals", "info", sprintf("Units not in Vol (no pattern support evidence): %s", paste(head(us, 6), collapse = ", ")))
+    }
+    corr <- iv[nzchar(qa) & !grepl("^ok$", qa, ignore.case = TRUE), .N]
+    if (corr) add("intervals", "info", sprintf("%d intervals with a QA-corrected estimate (qa_resultado not OK): shown on each record", corr))
+  }
+  if (!is.null(pf)) {
+    k <- c("well", "sand", "interval_id")
+    if (!is.null(iv)) {
+      orph <- unique(pf[, ..k])[!iv, on = k]
+      orph <- orph[!(sand == "-" & interval_id == "-")]
+      if (nrow(orph)) add("profiles", "warning", sprintf("%d profiles without an interval (e.g. %s %s %s): ignored for intervals", nrow(orph), orph$well[1], orph$sand[1], orph$interval_id[1]))
+      b <- merge(pf[scenario == "Base" & month == min(month), c(k, "qoi", "qw0", "qf"), with = FALSE], iv[, c(k, "qo0", "qw0", "qf0"), with = FALSE], by = k, suffixes = c("", ".iv"))
+      off <- function(a, z) is.finite(a) & is.finite(z) & abs(a - z) > tol * pmax(abs(z), 1)
+      nb <- b[off(qoi, qo0) | off(qw0, qw0.iv) | off(qf, qf0)]
+      if (nrow(nb)) add("profiles", "warning", sprintf("%d Base profiles whose initial rates differ from the interval (qoi = qo_inicial, qwi = qw_inicial, qf = qf_inicial), e.g. %s %s", nrow(nb), nb$well[1], nb$interval_id[1]))
+    }
+    cst <- pf[is.finite(qf), .(r = diff(range(qf)) / pmax(mean(qf), 1)), by = c(k, "scenario")][r > tol]
+    if (nrow(cst)) add("profiles", "warning", sprintf("%d scenarios where total liquid is not constant over the months", nrow(cst)))
+    sm <- pf[is.finite(qo) & is.finite(qw) & is.finite(qf) & abs(qo + qw - qf) > tol * pmax(qf, 1), .N]
+    if (sm) add("profiles", "warning", sprintf("%d rows where qo + qw differs from qf", sm))
+    sc <- dcast_first(pf, k)
+    if (nrow(sc)) {
+      bo <- sc[is.finite(Bajo) & is.finite(Base) & is.finite(Alto) & !(Bajo <= Base + 1e-9 & Base <= Alto + 1e-9)]
+      if (nrow(bo)) add("profiles", "warning", sprintf("%d profiles where initial oil is not Bajo <= Base <= Alto", nrow(bo)))
+    }
+    mo <- pf[, .(ok = isTRUE(all.equal(sort(unique(as.integer(month))), seq_len(max(month)))), n = max(month)), by = c(k, "scenario")]
+    if (any(!mo$ok)) add("profiles", "warning", sprintf("%d scenarios whose months are not contiguous from 1", sum(!mo$ok)))
+    if (mo[, data.table::uniqueN(n), by = k][V1 > 1, .N]) add("profiles", "info", "Scenarios of the same interval have different horizons")
+    unk <- setdiff(unique(pf$scenario), c("Bajo", "Base", "Alto"))
+    if (length(unk)) add("profiles", "warning", sprintf("Unknown scenarios: %s", paste(unk, collapse = ", ")))
+  }
+  if (!is.null(ds$findings)) {
+    nf <- ds$findings[is.na(family), .N]
+    if (nf) add("findings", "info", sprintf("%d finding rows without an evidence family (M, V, U, S, O): kept as context only", nf))
+  }
+  I
+}
+
+dcast_first <- function(pf, k) {
+  x <- pf[month == 1, c(k, "scenario", "qo"), with = FALSE]
+  if (!nrow(x)) return(data.table::data.table())
+  x <- unique(x, by = c(k, "scenario"))
+  out <- data.table::dcast(x, stats::as.formula(paste(paste(k, collapse = "+"), "~ scenario")), value.var = "qo")
+  if (!all(c("Bajo", "Base", "Alto") %in% names(out))) return(data.table::data.table())
+  out
 }
 
 # Excel template with one sheet per table and a README sheet.

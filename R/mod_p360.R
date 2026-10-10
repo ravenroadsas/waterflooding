@@ -37,11 +37,11 @@ p360_server <- function(input, output, session, ctx, pat) {
     htmltools::span(if (!is.na(inj)) paste(" ›", inj), if (length(u) && !is.na(u)) htmltools::span(class = "wf-acc", paste(" › unit", u)))
   })
   output$p360_head <- shiny::renderUI({
-    r <- row(); shiny::req(nrow(r)); op <- ctx$opps()$summary[pattern == pat()]
+    r <- row(); shiny::req(nrow(r)); op <- opps_for_pattern(ctx$opps()$summary, ctx$res(), pat(), ctx$asof())
     htmltools::div(class = "wf-p360-head",
       htmltools::h3(paste("Pattern", pat())), badge(as.character(r$stage), stage_colors[[as.character(r$stage)]]),
       if (is.finite(r$opr)) badge(sprintf("OPR %.2f · WPR %.2f", r$opr, r$wpr), if (r$opr < 1) pal$crit else pal$ok),
-      if (nrow(op)) badge(sprintf("%d opportunities (%s)", nrow(op), paste(unique(op$type), collapse = ", ")), pal$accent),
+      if (nrow(op)) badge(sprintf("%d opportunities on its wells (%s)", nrow(op), paste(unique(op$action), collapse = ", ")), pal$accent),
       if ("cluster_name" %in% names(r) && !is.na(r$cluster_name)) badge(r$cluster_name, "#f472b6"),
       htmltools::div(class = "wf-kpi-row compact",
         kpi("HCPV", fmt_mm(r$hcpv, 2)), kpi("DWI", fmt_num(r$dwi, 2)), kpi("Sec RF", fmt_pct(r$sec_rf)), kpi("Util", fmt_num(r$util, 1)),
@@ -50,12 +50,13 @@ p360_server <- function(input, output, session, ctx, pat) {
   })
 
   output$p360_opps <- DT::renderDT({
-    op <- ctx$opps()$summary[pattern == pat()]
+    op <- opps_for_pattern(ctx$opps()$summary, ctx$res(), pat(), ctx$asof())
     if (!nrow(op)) return(dt_dark(data.table::data.table(Message = "No opportunities for this pattern at this date")))
-    dt_dark(op[, .(Type = paste(type, opp_types[type]), Unit = sand, Well = well, Evidence = families, Status = as.character(status), Score = score, Key = key)], dom = "t")
+    dt_dark(op[, .(Action = paste(action, action_label(action)), Well = well, Unit = sand, Interval = interval, Lenses = lenses, Evidence = families,
+                   Status = as.character(status), Score = score)], dom = "t")
   })
   shiny::observeEvent(input$p360_opps_rows_selected, {
-    op <- ctx$opps()$summary[pattern == pat()]
+    op <- opps_for_pattern(ctx$opps()$summary, ctx$res(), pat(), ctx$asof())
     ctx$open_opp(op$key[input$p360_opps_rows_selected]); shiny::removeModal()
   })
 
@@ -122,6 +123,11 @@ p360_server <- function(input, output, session, ctx, pat) {
     d <- Reduce(function(x, y) merge(x, y, by = "well", all.x = TRUE), list(al[, .(well, coeff)], pw, unique(r$wells[, .(well, well_type)], by = "well"), dfl, hi))
     dt_dark(d[, .(Well = well, Type = well_type, Coeff = round(coeff, 3), `Alloc. Np (Mstb)` = round(cum_oil / 1e3, 1), `Alloc. Wp (Mbbl)` = round(cum_water / 1e3, 1),
                   `Alloc. Wi (Mbbl)` = round(cum_winj / 1e3, 1), `HI oil` = round(hi_oil, 2), `HI water` = round(hi_water, 2), `Fluid level ft` = dfl)], dom = "t", pageLength = 20)
+  })
+  shiny::observeEvent(input$p360_wells_rows_selected, {
+    r <- ctx$res(); a <- ctx$asof()
+    w <- sort(unique(r$alloc[pattern == pat() & date == max(date[date <= a]), well]))[input$p360_wells_rows_selected]
+    if (length(w) && !is.na(w)) { shiny::removeModal(); ctx$open_w360(w) }
   })
   output$p360_hi <- plotly::renderPlotly({
     r <- ctx$res(); wells <- unique(r$alloc[pattern == pat() & coeff > 0, well])

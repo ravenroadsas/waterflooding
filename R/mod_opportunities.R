@@ -1,37 +1,59 @@
-# STEP 3 - OPPORTUNITIES ---------------------------------------------------------------------
+# STEP 3 - OPPORTUNITIES (well interventions) --------------------------------------------------
 
 opportunities_ui <- function() {
   htmltools::tagList(
     htmltools::div(class = "wf-section-intro",
       htmltools::div(class = "wf-step", "Step 3 of 3"), htmltools::h2("Opportunities"),
-      htmltools::p("Candidates are decision records built from maturity, velocity, unit, spatial and operations evidence.",
-                   "A signal from a single family stays at screening_only; engineers confirm validation items and move the status forward.")),
+      htmltools::p("Every opportunity is a job on a well (action · well · unit · interval). Pattern rules, the single-well analysis and other",
+                   "analyses add evidence to the same target. A single family stays at screening_only; engineers confirm validation items and move the status forward.")),
     shiny::uiOutput("opp_funnel"),
+    # loads the date-picker assets used by the job modal
+    htmltools::div(style = "display:none", shiny::dateInput("opp_date_assets", NULL)),
+    htmltools::div(class = "wf-opp-filters",
+      shiny::radioButtons("opp_lens", NULL, c("All lenses" = "", "Pattern" = "PATTERN", "Well" = "WELL", "Other analyses" = "OTHER"), inline = TRUE),
+      shiny::selectInput("opp_drive", NULL, c("All drives" = ""), width = "150px"),
+      shiny::selectizeInput("opp_actions", NULL, choices = NULL, multiple = TRUE, width = "260px", options = list(placeholder = "All actions")),
+      shiny::selectInput("opp_lvl", NULL, c("Orgunit" = "orgunit", "Contract" = "contract", "Field" = "field", "Structure" = "structure", "Area" = "area"),
+                         selected = "field", width = "120px"),
+      shiny::selectizeInput("opp_lvl_val", NULL, choices = NULL, multiple = TRUE, width = "220px", options = list(placeholder = "all"))),
     bslib::navset_card_underline(id = "opp_tabs",
-      bslib::nav_panel("Candidates", value = "cand",
+      bslib::nav_panel("Portfolio", value = "cand",
         bslib::layout_columns(col_widths = c(5, 7),
-          htmltools::div(
-            htmltools::div(class = "wf-inline-tools",
-              shiny::checkboxGroupInput("opp_types", NULL, choices = stats::setNames(names(opp_types), paste(names(opp_types), opp_types)),
-                                        selected = names(opp_types), inline = TRUE)),
-            DT::DTOutput("opp_list")),
+          htmltools::div(shiny::uiOutput("opp_count"), DT::DTOutput("opp_list"), shiny::uiOutput("opp_unassigned")),
           shiny::uiOutput("opp_record"))),
+      bslib::nav_panel("Portfolio map", value = "map",
+        htmltools::p(class = "wf-muted small", "Oil in the first 12 months (Base profile, or an indicative 12 months from the gain rate) against the water lifted in the same period. Size = priority score. Click a point to open its record."),
+        plotly::plotlyOutput("opp_bubble", height = "520px")),
       bslib::nav_panel("Board", value = "board", shiny::uiOutput("opp_board")),
+      bslib::nav_panel("Jobs & outcomes", value = "iv",
+        bslib::layout_columns(col_widths = c(5, 7),
+          htmltools::div(htmltools::h6(class = "wf-h6", "Interventions (your table + logged in the app)"), DT::DTOutput("opp_iv")),
+          htmltools::div(shiny::uiOutput("opp_eval_head"), plotly::plotlyOutput("opp_eval_plot", height = "320px"), DT::DTOutput("opp_eval")))),
       bslib::nav_panel("Conformance ranking", value = "rank",
         bslib::layout_columns(col_widths = c(7, 5),
           htmltools::div(htmltools::h6(class = "wf-h6", "Method 1: points against the area average (higher = stronger conformance candidate)"), DT::DTOutput("opp_rank")),
           htmltools::div(htmltools::h6(class = "wf-h6", "Method 2: volumetric efficiency ratio vs Loss"), plotly::plotlyOutput("opp_m2", height = "420px")))),
-      bslib::nav_panel("Interventions & outcomes", value = "iv",
-        bslib::layout_columns(col_widths = c(6, 6),
-          htmltools::div(htmltools::h6(class = "wf-h6", "Interventions (your table + logged in the app)"), DT::DTOutput("opp_iv")),
-          htmltools::div(htmltools::h6(class = "wf-h6", "Before / after the selected job, with the waterflood-fit baseline"), DT::DTOutput("opp_eval"),
-                         plotly::plotlyOutput("opp_eval_plot", height = "300px")))),
       bslib::nav_panel("Rules & weights", value = "rules", shiny::uiOutput("opp_rules")))
   )
 }
 
 opportunities_server <- function(input, output, session, ctx) {
   status_filter <- shiny::reactiveVal(c("screening_only", "candidate", "validated_candidate", "executed", "outcome_evaluated"))
+
+  # ---- filters ----
+  shiny::observe({
+    s <- ctx$opps()$summary
+    if (!nrow(s)) return()
+    dr <- sort(unique(stats::na.omit(s$drive)))
+    shiny::updateSelectInput(session, "opp_drive", choices = c("All drives" = "", stats::setNames(dr, tools::toTitleCase(dr))), selected = shiny::isolate(input$opp_drive))
+    ac <- unique(s$action)
+    shiny::updateSelectizeInput(session, "opp_actions", choices = stats::setNames(ac, action_label(ac)), selected = shiny::isolate(input$opp_actions))
+  })
+  shiny::observe({
+    s <- ctx$opps()$summary; lv <- input$opp_lvl %||% "field"
+    if (!nrow(s) || !lv %in% names(s)) return()
+    shiny::updateSelectizeInput(session, "opp_lvl_val", choices = sort(unique(stats::na.omit(s[[lv]]))), selected = character())
+  })
 
   output$opp_funnel <- shiny::renderUI({
     s <- ctx$opps()$summary
@@ -47,60 +69,129 @@ opportunities_server <- function(input, output, session, ctx) {
   })
   shiny::observeEvent(input$opp_f_all, status_filter(status_levels))
 
-  listed <- shiny::reactive({
+  filtered <- shiny::reactive({
     s <- ctx$opps()$summary
     if (!nrow(s)) return(s)
-    s[type %in% input$opp_types & as.character(status) %in% status_filter()]
+    if (nzchar(input$opp_lens %||% "")) s <- s[vapply(strsplit(lenses, ", "), function(l) any(lens_group(l) == input$opp_lens), TRUE)]
+    if (nzchar(input$opp_drive %||% "")) s <- s[drive == input$opp_drive]
+    if (length(input$opp_actions)) s <- s[action %in% input$opp_actions]
+    lv <- input$opp_lvl %||% "field"
+    if (length(input$opp_lvl_val) && lv %in% names(s)) s <- s[get(lv) %in% input$opp_lvl_val]
+    s
   })
+  listed <- shiny::reactive({
+    s <- filtered()
+    if (!nrow(s)) return(s)
+    s <- s[as.character(status) %in% status_filter()]
+    # grouped by well: wells ordered by their best score, opportunities by score inside the well
+    s[, wbest := max(score), by = well]
+    data.table::setorder(s, -wbest, well, -score)
+    s
+  })
+
   fam_chips <- function(f) paste(vapply(names(families), function(k)
     sprintf('<span class="wf-fam %s">%s</span>', if (grepl(k, f)) "y" else "", k), ""), collapse = "")
+  lens_chips <- function(l) paste(vapply(strsplit(l, ", ")[[1]], function(x)
+    sprintf('<span class="wf-lens" style="--lc:%s">%s</span>', lens_colors[[lens_group(x)]], if (lens_group(x) == "OTHER") "OTHER" else x), ""), collapse = "")
+  target_txt <- function(s) paste0(s$well, ifelse(is.na(s$sand), "", paste(" ·", s$sand)), ifelse(is.na(s$interval), "", paste(" ·", s$interval)))
+
+  output$opp_count <- shiny::renderUI({
+    s <- listed()
+    htmltools::div(class = "wf-muted small", sprintf("%d opportunities on %d wells", nrow(s), data.table::uniqueN(s$well)),
+      if (econ_available()) htmltools::span(" · economics plugged in") else htmltools::span(" · ranked on volumes (economics not plugged in)"))
+  })
   output$opp_list <- DT::renderDT({
     s <- listed()
     if (!nrow(s)) return(dt_dark(data.table::data.table(Message = "No opportunities for this filter")))
-    d <- s[, .(` ` = sprintf('<span class="wf-ot" style="--tc:%s">%s</span>', opp_colors[type], type),
-               Target = sprintf("<b>%s</b>%s%s<br><small>%s</small>", pattern, ifelse(is.na(sand), "", paste(" · unit", sand)),
-                                ifelse(is.na(well), "", paste(" ·", well)), opp_types[type]),
-               Evidence = vapply(families, fam_chips, ""), Status = badge_html(as.character(status), status_colors[as.character(status)]),
+    first <- !duplicated(s$well)
+    d <- s[, .(Well = ifelse(first, sprintf("<b>%s</b><br><small>%s · %s</small>", well, tolower(data.table::fcoalesce(well_type, "")), drive), ""),
+               Action = sprintf('<span class="wf-act" style="--tc:%s">%s</span> %s<br><small>%s</small>', action_color(action), action,
+                                ifelse(is.na(sand), "", paste("unit", sand, ifelse(is.na(interval), "", interval))), action_label(action)),
+               Lenses = vapply(lenses, lens_chips, ""), Evidence = vapply(families, fam_chips, ""),
+               Status = badge_html(as.character(status), status_colors[as.character(status)]),
                `Gain bopd` = round(gain), Score = score)]
-    dt_dark(d, escape = FALSE, pageLength = 12, dom = "tip", ordering = FALSE)
+    dt_dark(d, escape = FALSE, pageLength = 14, dom = "tip", ordering = FALSE)
   })
   shiny::observeEvent(input$opp_list_rows_selected, ctx$sel_opp(listed()$key[input$opp_list_rows_selected]))
 
-  sel <- shiny::reactive({
-    k <- ctx$sel_opp(); op <- ctx$opps()
-    if (is.null(k) || !k %in% op$summary$key) { if (nrow(op$summary)) k <- op$summary$key[1] else return(NULL) }
-    list(rec = op$records[[k]], row = op$summary[key == k])
+  output$opp_unassigned <- shiny::renderUI({
+    u <- ctx$opps()$unassigned
+    if (is.null(u) || !nrow(u)) return(NULL)
+    htmltools::div(class = "wf-blk", htmltools::div(class = "l", sprintf("Findings without a target well (%d)", nrow(u))),
+      htmltools::tags$ul(lapply(seq_len(nrow(u)), function(i) htmltools::tags$li(sprintf("%s rule %s on %s (%s): no qualifying well. %s",
+        u$lens[i], u$rule[i], data.table::fcoalesce(u$pattern[i], "-"), u$families[i], u$note[i])))))
   })
 
-  blk <- function(label, txt) if (is.null(txt) || !nzchar(txt) || identical(txt, "-")) NULL else
+  sel <- shiny::reactive({
+    k <- ctx$sel_opp(); op <- ctx$opps()
+    l <- listed()
+    # follow the filters: a record hidden by them gives way to the first listed one
+    if (is.null(k) || !k %in% op$summary$key || (nrow(l) && !k %in% l$key)) { if (nrow(l)) k <- l$key[1] else if (nrow(op$summary)) k <- op$summary$key[1] else return(NULL) }
+    list(rec = op$records[[k]], row = op$summary[key == k])
+  })
+  sel_profile <- shiny::reactive({ s <- sel(); shiny::req(s); profile_rows(ctx$res()$ds$profiles, s$row$fkey) })
+  sel_hist <- shiny::reactive({ s <- sel(); shiny::req(s); well_history(ctx$res(), s$rec$well, ctx$asof()) })
+
+  blk <- function(label, txt) if (is.null(txt) || !length(txt) || !nzchar(txt) || identical(txt, "-")) NULL else
     htmltools::div(class = "wf-blk", htmltools::div(class = "l", label), htmltools::p(txt))
   lst <- function(label, x) if (!length(x)) NULL else htmltools::div(class = "wf-blk", htmltools::div(class = "l", label), htmltools::tags$ul(lapply(x, htmltools::tags$li)))
+
+  auto_checks <- function(s) {
+    r <- s$rec; row <- s$row; out <- list()
+    qa <- r$meta$qa
+    if (!is.null(qa)) out[["QA of the interval estimate"]] <- if (qa_ok(qa)) "ok" else paste("corrected:", qa)
+    if (identical(row$gain_src, "PROFILE")) {
+      iv <- ctx$res()$ds$intervals
+      b <- sel_profile()[scenario == "Base" & month == 1]
+      i <- if (!is.null(iv)) iv[well == r$well & sand == r$sand & interval_id == r$interval] else NULL
+      if (!is.null(i) && nrow(i) && nrow(b)) out[["Base profile = initial rates"]] <- if (abs(b$qo - i$qo0) <= 0.01 * max(i$qo0, 1)) "ok" else sprintf("differs (%s vs %s bopd)", fmt_int(b$qo), fmt_int(i$qo0))
+      out[["Forecast"]] <- "Bajo / Base / Alto profiles"
+    } else out[["Forecast"]] <- switch(data.table::fcoalesce(row$gain_src, ""), SF_FIT = "waterflood fit (indicative)", ARPS = "well decline fit (indicative)",
+                                         SOURCE = "gain given by the source analysis", INTERVAL = "initial rate of the interval only", "none: ranked on evidence")
+    out
+  }
 
   output$opp_record <- shiny::renderUI({
     s <- sel(); if (is.null(s)) return(htmltools::div(class = "wf-muted", "No opportunities at this date."))
     r <- s$rec; row <- s$row; tx <- r$text; key <- r$key
     checks <- store_checks(ctx$con, key)
     ai <- store_ai(ctx$con, key)
+    ac <- auto_checks(s)
+    depth <- if (is.finite(r$meta$top %||% NA) && is.finite(r$meta$base %||% NA)) sprintf("%s-%s ft", fmt_int(r$meta$top), fmt_int(r$meta$base)) else NULL
     htmltools::div(class = "wf-record",
       htmltools::div(class = "wf-rec-head",
-        htmltools::span(class = "wf-ot big", style = sprintf("--tc:%s", opp_colors[[r$type]]), r$type),
-        htmltools::h4(sprintf("%s · %s%s%s", opp_types[[r$type]], r$pattern, if (is.na(r$sand)) "" else paste(" · unit", r$sand), if (is.na(r$well)) "" else paste(" ·", r$well))),
+        htmltools::span(class = "wf-act big", style = sprintf("--tc:%s", action_color(r$action)), r$action),
+        htmltools::h4(sprintf("%s · %s%s%s", action_label(r$action), r$well, if (is.na(r$sand)) "" else paste(" · unit", r$sand), if (is.na(r$interval)) "" else paste(" ·", r$interval))),
         badge(as.character(row$status), status_colors[[as.character(row$status)]]),
         badge(sprintf("evidence %d of 5: %s", row$n_fam, row$families), "#fbbf24"),
-        htmltools::span(class = "wf-muted small", paste("detected", fmt_month(ctx$asof()))),
-        shiny::actionLink("opp_open360", "Pattern 360 →", class = "wf-link")),
+        badge(row$drive %||% "primary", if (identical(row$drive, "primary")) "#94a3b8" else "#60a5fa"),
+        htmltools::HTML(lens_chips(row$lenses)),
+        htmltools::span(class = "wf-muted small", paste(c(row$orgunit, row$contract, row$field, row$structure), collapse = " › ")),
+        shiny::actionLink("opp_openw360", "Well 360 →", class = "wf-link"),
+        if (!is.na(row$pattern)) shiny::actionLink("opp_open360", paste("Pattern", row$pattern, "360 →"), class = "wf-link")),
+      htmltools::div(class = "wf-kpi-row compact",
+        if (!is.null(depth)) kpi("Interval, ft", sub(" ft", "", depth)),
+        kpi("Gain, bopd", fmt_int(row$gain), data.table::fcoalesce(row$gain_src, "no estimate")),
+        if (is.finite(row$qo1_Base)) kpi("Bajo / Base / Alto", sprintf("%s / %s / %s", fmt_int(row$qo1_Bajo), fmt_int(row$qo1_Base), fmt_int(row$qo1_Alto)), "initial oil, bopd"),
+        kpi("Oil 12 m", fmt_num(row$np12), if (identical(row$gain_src, "PROFILE")) "stb, Base" else "stb, indicative"),
+        if (is.finite(row$wp12)) kpi("Water 12 m", fmt_num(row$wp12), "bbl, Base"),
+        kpi("EUR / remaining", fmt_num(row$stake), "stb"), kpi("Score", row$score)),
       bslib::layout_columns(col_widths = c(4, 4, 4),
-        plotly::plotlyOutput("opp_m_a", height = "190px"), plotly::plotlyOutput("opp_m_b", height = "190px"), plotly::plotlyOutput("opp_m_c", height = "190px")),
+        plotly::plotlyOutput("opp_m_a", height = "210px"), plotly::plotlyOutput("opp_m_b", height = "210px"), plotly::plotlyOutput("opp_m_c", height = "210px")),
       htmltools::div(class = "wf-blk-grid",
-        blk("Maturity evidence", tx$maturity), blk("Velocity / balance evidence", tx$velocity), blk("Vertical evidence", tx$vertical),
+        blk("Maturity evidence", tx$maturity), blk("Velocity / support evidence", tx$velocity), blk("Vertical evidence", tx$vertical),
         blk("Spatial evidence", tx$spatial), blk("Operations", tx$ops), blk("Suspected mechanism", tx$mechanism),
         lst("Alternative explanations", tx$alternatives), lst("Data gaps", tx$gaps),
-        blk("Proposed action", tx$action), blk(sprintf("Expected response (%s)", tx$window), tx$outcome)),
-      htmltools::h6(class = "wf-h6", "OpportunityEvidence"),
+        blk("Proposed action", tx$action), blk(sprintf("Expected response (%s)", tx$window), tx$outcome),
+        lst("Also found by", tx$others)),
+      htmltools::h6(class = "wf-h6", "Evidence"),
       DT::DTOutput("opp_evidence"),
       bslib::layout_columns(col_widths = c(6, 6),
         htmltools::div(class = "wf-blk",
           htmltools::div(class = "l", "Validation before execution"),
+          htmltools::div(class = "wf-auto-checks", lapply(names(ac), function(n) htmltools::div(
+            htmltools::span(class = if (identical(ac[[n]], "ok") || grepl("profiles", ac[[n]])) "ok" else "warn", if (identical(ac[[n]], "ok")) "✓" else "•"),
+            htmltools::span(paste0(n, ": ", ac[[n]]))))),
           shiny::checkboxGroupInput("opp_checks", NULL, choices = tx$validation, selected = intersect(checks, tx$validation))),
         htmltools::div(class = "wf-blk",
           htmltools::div(class = "l", "Notes"),
@@ -112,7 +203,7 @@ opportunities_server <- function(input, output, session, ctx) {
         shiny::actionButton("opp_outcome", "Record outcome", class = "btn-sm btn-outline-info"),
         shiny::actionButton("opp_dismiss", "Dismiss with reason", class = "btn-sm btn-outline-light"),
         shiny::actionButton("opp_reset", "Reset status", class = "btn-sm btn-outline-light"),
-        htmltools::span(class = "wf-muted small", sprintf("Priority basis: indicative gain %s bopd; remaining WF oil %s stb", fmt_num(r$gain), fmt_num(r$stake)))),
+        htmltools::span(class = "wf-muted small", "Validating freezes the forecast used for the decision; the job is later compared with it.")),
       htmltools::div(class = "wf-ai",
         htmltools::div(class = "l", "AI draft of the decision record"),
         if (ai_available()) shiny::actionButton("opp_ai", if (is.null(ai)) "Draft with AI" else "Redraft with AI", class = "btn-sm btn-outline-info")
@@ -126,8 +217,10 @@ opportunities_server <- function(input, output, session, ctx) {
   output$opp_evidence <- DT::renderDT({
     s <- sel(); shiny::req(s)
     e <- data.table::copy(s$rec$evidence)
+    if (!nrow(e)) return(dt_dark(data.table::data.table(Message = "No evidence rows"), dom = "t"))
     e[, `:=`(value = signif(value, 3), reference = signif(reference, 3))]
-    dt_dark(e, dom = "t", pageLength = 20, ordering = FALSE)
+    data.table::setcolorder(e, intersect(c("lens", "metric", "value", "reference", "unit", "comment"), names(e)))
+    dt_dark(e, dom = "t", pageLength = 30, ordering = FALSE)
   })
   output$opp_hist <- DT::renderDT({
     s <- sel(); shiny::req(s); ctx$store_tick()
@@ -136,36 +229,39 @@ opportunities_server <- function(input, output, session, ctx) {
     dt_dark(h, dom = "t", pageLength = 20, ordering = FALSE)
   })
 
-  mini <- function(kind) {
-    s <- sel(); shiny::req(s); r <- s$rec; sn <- ctx$snap()
-    p <- switch(kind,
-      secrf = { x <- sn[flooded == TRUE]; pr <- main_proto(ctx$res(), x)
+  # ---- the three small plots adapt to what the target has ----
+  small <- function(p) plotly::layout(p, margin = list(l = 45, r = 40, t = 10, b = 35), font = list(size = 9))
+  pattern_mini <- function(kind, r) {
+    sn <- ctx$snap(); pt <- r$pattern
+    if (is.na(pt) || !pt %in% sn$entity) return(NULL)
+    switch(kind,
+      secrf = { x <- sn[flooded == TRUE]; if (!nrow(x)) return(NULL); pr <- main_proto(ctx$res(), x)
         q <- add_proto(plotly::plot_ly(), pr, "sec_rf", max(1.2, max(x$dwi) * 1.05))
-        q <- pattern_scatter(x, "dwi", "sec_rf", color = "opr", size = NULL, shape = FALSE, hl = r$pattern, p = q)
+        q <- pattern_scatter(x, "dwi", "sec_rf", color = "opr", size = NULL, shape = FALSE, hl = pt, p = q)
         plotly::layout(pl_theme(q, "DWI", "Sec RF", legend = FALSE), yaxis = axis_style("Sec RF", tickformat = ".0%")) },
-      utiltp = { x <- sn[flooded == TRUE & is.finite(util)]
-        q <- pattern_scatter(x, "util", "tp12", color = "iwr12", size = NULL, shape = FALSE, hl = r$pattern)
-        plotly::layout(pl_theme(q, "Utilization", "Inj TP %/yr", legend = FALSE), shapes = list(hline_shape(ctx$settings()$target_tp, pal$warn))) },
-      third = {
-        if (r$type %in% c("A", "D", "B")) {
-          u <- ctx$units_snap()[pattern == r$pattern]
-          q <- plotly::plot_ly(u, x = ~sand, y = ~dwi, type = "bar", name = "DWI", marker = list(color = ifelse(u$sand %in% r$sand, pal$crit, "#3b82f6")))
-          q <- plotly::add_lines(q, x = ~sand, y = ~tp12 / 10, name = "TP/10", yaxis = "y", line = list(color = pal$warn))
-          pl_theme(q, "Unit", "DWI (bars) · TP/10 (line)", legend = FALSE)
-        } else {
-          x <- sn[flooded == TRUE & is.finite(evr) & is.finite(loss)]
-          q <- pattern_scatter(x, "loss", "evr", color = "opr", size = NULL, shape = FALSE, hl = r$pattern)
-          st <- ctx$settings()
-          plotly::layout(pl_theme(q, "Loss", "Evol(MB)/Evol(FF)", legend = FALSE),
-                         shapes = list(list(type = "line", x0 = st$loss_high, x1 = st$loss_high, yref = "paper", y0 = 0, y1 = 1, line = list(color = pal$muted, dash = "dot")),
-                                       hline_shape(st$evr_low, pal$muted, "dot")))
-        }
-      })
-    plotly::layout(p, margin = list(l = 45, r = 5, t = 10, b = 35), font = list(size = 9))
+      units = { u <- ctx$units_snap()[pattern == pt]; if (!nrow(u)) return(NULL)
+        q <- plotly::plot_ly(u, x = ~sand, y = ~dwi, type = "bar", name = "DWI", marker = list(color = ifelse(u$sand %in% r$sand, pal$crit, "#3b82f6")))
+        q <- plotly::add_lines(q, x = ~sand, y = ~tp12 / 10, name = "TP/10", line = list(color = pal$warn))
+        pl_theme(q, paste("Unit in", pt), "DWI (bars) · TP/10 (line)", legend = FALSE) },
+      utiltp = { x <- sn[flooded == TRUE & is.finite(util)]; if (!nrow(x)) return(NULL)
+        q <- pattern_scatter(x, "util", "tp12", color = "iwr12", size = NULL, shape = FALSE, hl = pt)
+        plotly::layout(pl_theme(q, "Utilization", "Inj TP %/yr", legend = FALSE), shapes = list(hline_shape(ctx$settings()$target_tp, pal$warn))) })
   }
-  output$opp_m_a <- plotly::renderPlotly(mini("secrf"))
-  output$opp_m_b <- plotly::renderPlotly(mini("utiltp"))
-  output$opp_m_c <- plotly::renderPlotly(mini("third"))
+  plots <- shiny::reactive({
+    s <- sel(); shiny::req(s); r <- s$rec
+    ivw <- ctx$res()$ds$intervals; ivw <- if (!is.null(ivw)) ivw[well == r$well] else NULL
+    has_prof <- identical(s$row$gain_src, "PROFILE")
+    cand <- list(
+      if (has_prof) function() plot_forecast(sel_profile()),
+      function() plot_well_history(sel_hist(), 5),
+      if (!is.null(ivw) && nrow(ivw)) function() plot_interval_strip(ivw, r$interval),
+      if (!is.na(r$pattern)) function() pattern_mini(if (!is.na(r$sand)) "units" else "secrf", r),
+      if (!is.na(r$pattern)) function() pattern_mini("utiltp", r))
+    cand <- Filter(Negate(is.null), cand)
+    cand[seq_len(min(3, length(cand)))]
+  })
+  slot <- function(i) plotly::renderPlotly({ f <- plots(); if (length(f) < i) return(empty_plot("")); p <- f[[i]](); if (is.null(p)) p <- empty_plot("No pattern context"); small(p) })
+  output$opp_m_a <- slot(1); output$opp_m_b <- slot(2); output$opp_m_c <- slot(3)
 
   key_now <- function() { s <- sel(); if (is.null(s)) NULL else s$rec$key }
   bump <- function() ctx$store_tick(ctx$store_tick() + 1)
@@ -176,13 +272,18 @@ opportunities_server <- function(input, output, session, ctx) {
       store_set_state(ctx$con, k, checks = input$opp_checks)
   }, ignoreNULL = FALSE, ignoreInit = TRUE)
   shiny::observeEvent(input$opp_save_notes, { store_set_state(ctx$con, key_now(), notes = input$opp_notes); shiny::showNotification("Notes saved") })
-  shiny::observeEvent(input$opp_open360, ctx$open_p360(sel()$rec$pattern))
+  shiny::observeEvent(input$opp_open360, ctx$open_p360(sel()$row$pattern))
+  shiny::observeEvent(input$opp_openw360, ctx$open_w360(sel()$rec$well))
 
   shiny::observeEvent(input$opp_validate, {
     s <- sel(); v <- s$rec$text$validation
     if (!all(v %in% input$opp_checks)) { shiny::showNotification("Confirm every validation item first", type = "warning"); return() }
     if (s$row$n_fam < 2) { shiny::showNotification("Screening signals need a second family of evidence before validation", type = "warning"); return() }
-    store_set_state(ctx$con, s$rec$key, status = "validated_candidate", checks = input$opp_checks, comment = "all validation items confirmed"); bump()
+    pr <- if (identical(s$row$gain_src, "PROFILE")) sel_profile() else NULL
+    store_freeze_forecast(ctx$con, s$rec$key, pr)
+    store_set_state(ctx$con, s$rec$key, status = "validated_candidate", checks = input$opp_checks,
+                    comment = paste("all validation items confirmed", if (!is.null(pr)) "; Bajo/Base/Alto forecast frozen" else ""))
+    bump()
   })
   shiny::observeEvent(input$opp_reset, { store_set_state(ctx$con, key_now(), status = sel()$row$auto_status, comment = "reset"); bump() })
 
@@ -194,31 +295,33 @@ opportunities_server <- function(input, output, session, ctx) {
     shiny::removeModal(); bump()
   })
 
+  # one rig visit can execute several opportunities of the same well (job package)
   shiny::observeEvent(input$opp_log, {
-    r <- sel()$rec
-    wells <- unique(ctx$res()$alloc[pattern == r$pattern & coeff > 0, well])
-    type0 <- c(A = "ISOLATION", B = "STIM", C = "LIFT", D = "ADPERF", E = "CONFORMANCE", F = "RATE")[[r$type]]
-    shiny::showModal(shiny::modalDialog(title = "Log intervention", easyClose = TRUE,
-      shiny::selectInput("iv_well", "Well", wells, selected = if (!is.na(r$well)) r$well else wells[1]),
-      shiny::selectInput("iv_type", "Type", c("STIM", "ISOLATION", "ADPERF", "RATE", "LIFT", "CONFORMANCE"), selected = type0),
-      shiny::selectInput("iv_sand", "Unit", c("(none)" = "", sort(unique(ctx$res()$sand_props$sand))), selected = if (is.na(r$sand)) "" else r$sand),
-      shiny::dateInput("iv_date", "Date", value = Sys.Date()),
+    r <- sel()$rec; same <- ctx$opps()$summary[well == r$well]
+    shiny::showModal(shiny::modalDialog(title = sprintf("Log intervention on %s", r$well), easyClose = TRUE,
+      shiny::selectizeInput("iv_keys", "Opportunities executed in this job", choices = stats::setNames(same$key, paste(action_label(same$action), target_txt(same))),
+                            selected = r$key, multiple = TRUE, width = "100%"),
+      shiny::dateInput("iv_date", "Date", value = ctx$asof()),
       shiny::radioButtons("iv_status", "Status", c("EXECUTED", "PLANNED"), inline = TRUE),
       shiny::textAreaInput("iv_notes", "Notes", rows = 2, width = "100%"),
       footer = htmltools::tagList(shiny::modalButton("Cancel"), shiny::actionButton("iv_ok", "Save", class = "btn-primary"))))
   })
   shiny::observeEvent(input$iv_ok, {
-    r <- sel()$rec
-    store_add_intervention(ctx$con, input$iv_well, r$pattern, input$iv_sand, input$iv_date, input$iv_type, input$iv_status, input$iv_notes, r$key)
-    if (input$iv_status == "EXECUTED") store_set_state(ctx$con, r$key, status = "executed", comment = paste(input$iv_type, input$iv_well, format(input$iv_date)))
-    shiny::removeModal(); bump(); shiny::showNotification("Intervention logged")
+    keys <- input$iv_keys; shiny::req(length(keys))
+    recs <- ctx$opps()$records[keys]; row <- ctx$opps()$summary
+    job <- sprintf("JOB-%s-%s", recs[[1]]$well, format(Sys.time(), "%Y%m%d%H%M%S"))
+    for (x in recs) {
+      store_add_intervention(ctx$con, x$well, row[key == x$key]$pattern, x$sand, input$iv_date, action_job(x$action), input$iv_status, input$iv_notes, x$key, x$interval, job)
+      if (input$iv_status == "EXECUTED") store_set_state(ctx$con, x$key, status = "executed", comment = paste(action_job(x$action), x$well, format(input$iv_date), job))
+    }
+    shiny::removeModal(); bump(); shiny::showNotification(sprintf("Logged %d opportunit%s as %s", length(recs), if (length(recs) > 1) "ies" else "y", job))
   })
 
   shiny::observeEvent(input$opp_outcome, {
     r <- sel()$rec
     shiny::showModal(shiny::modalDialog(title = "Record outcome", easyClose = TRUE,
       htmltools::p(class = "wf-muted", paste("Expected:", r$text$outcome)),
-      shiny::radioButtons("oc_verdict", "Verdict", c("met", "partly met", "not met"), inline = TRUE),
+      shiny::radioButtons("oc_verdict", "Verdict", c("above Alto", "within range", "below Bajo", "met", "partly met", "not met"), inline = TRUE),
       shiny::textAreaInput("oc_actual", "Observed response", rows = 3, width = "100%"),
       footer = htmltools::tagList(shiny::modalButton("Cancel"), shiny::actionButton("oc_ok", "Save", class = "btn-primary"))))
   })
@@ -231,7 +334,7 @@ opportunities_server <- function(input, output, session, ctx) {
 
   shiny::observeEvent(input$opp_ai, {
     s <- sel(); r <- s$rec
-    pr <- ctx$snap()[entity == r$pattern]
+    pr <- if (!is.na(s$row$pattern)) ctx$snap()[entity == s$row$pattern] else NULL
     shiny::withProgress(message = "Drafting with AI", value = 0.4, {
       out <- tryCatch(ai_draft(ai_payload(r, s$row, pr, ctx$settings())), error = function(e) e)
     })
@@ -239,17 +342,38 @@ opportunities_server <- function(input, output, session, ctx) {
     store_save_ai(ctx$con, r$key, out$model, out$text); bump()
   })
 
+  # ---- portfolio map ----
+  output$opp_bubble <- plotly::renderPlotly({
+    s <- filtered()[as.character(status) %in% status_filter() & is.finite(np12)]
+    if (!nrow(s)) return(empty_plot("No opportunity with a volume estimate"))
+    s[, wp := data.table::fcoalesce(wp12, 0)]
+    s[, sz := 8 + 26 * score / max(c(score, 1))]
+    p <- plotly::plot_ly(source = "oppmap")
+    for (a in unique(s$action)) {
+      d <- s[action == a]
+      p <- plotly::add_markers(p, data = d, x = ~np12, y = ~wp, name = action_label(a), customdata = ~key,
+        marker = list(color = action_color(a), size = ~sz, opacity = 0.8, line = list(color = pal$bg, width = 1)),
+        text = ~sprintf("%s %s<br>%s · %s<br>oil 12 m %s stb · water 12 m %s bbl<br>score %s", action, target_txt(d), lenses, drive, fmt_num(np12), fmt_num(wp), score),
+        hoverinfo = "text")
+    }
+    plotly::event_register(pl_theme(p, "Oil in 12 months, stb", "Water in 12 months, bbl"), "plotly_click")
+  })
+  shiny::observeEvent(suppressWarnings(plotly::event_data("plotly_click", source = "oppmap")), {
+    k <- suppressWarnings(plotly::event_data("plotly_click", source = "oppmap"))$customdata
+    if (length(k)) { ctx$sel_opp(unlist(k)[1]); bslib::nav_select("opp_tabs", "cand") }
+  }, ignoreInit = TRUE)
+
   # ---- board ----
   output$opp_board <- shiny::renderUI({
-    s <- ctx$opps()$summary
+    s <- filtered()
     if (!nrow(s)) return(htmltools::div(class = "wf-muted", "No opportunities"))
     htmltools::div(class = "wf-board", lapply(status_levels, function(k) {
       x <- s[as.character(status) == k]
       htmltools::div(class = "wf-col", htmltools::div(class = "wf-col-h", style = sprintf("--fc:%s", status_colors[[k]]), sprintf("%s (%d)", k, nrow(x))),
         lapply(seq_len(nrow(x)), function(i) htmltools::tags$a(class = "wf-bcard", href = "#",
           onclick = sprintf("Shiny.setInputValue('board_pick', '%s', {priority: 'event'}); return false;", x$key[i]),
-          htmltools::span(class = "wf-ot", style = sprintf("--tc:%s", opp_colors[[x$type[i]]]), x$type[i]),
-          htmltools::span(sprintf("%s%s", x$pattern[i], if (is.na(x$sand[i])) "" else paste(" \u00b7", x$sand[i]))),
+          htmltools::span(class = "wf-act", style = sprintf("--tc:%s", action_color(x$action[i])), x$action[i]),
+          htmltools::span(target_txt(x[i])),
           htmltools::span(class = "wf-muted small", paste("score", x$score[i])))))
     }))
   })
@@ -279,13 +403,13 @@ opportunities_server <- function(input, output, session, ctx) {
                          a((st$loss_high + xm) / 2, ym * 0.96, "out of zone / area", pal$warn), a((xl + st$loss_high) / 2, ym * 0.96, "efficient", pal$ok))), "plotly_click")
   })
 
-  # ---- interventions ----
+  # ---- jobs and outcomes ----
   ivs <- shiny::reactive({
     ctx$store_tick()
     a <- ctx$res()$ds$interventions
-    a <- if (!is.null(a) && nrow(a)) a[, .(source = "table", well, date, type, sand, status, notes, opp_key = NA_character_)] else NULL
+    a <- if (!is.null(a) && nrow(a)) a[, .(source = "table", job = NA_character_, well, date, type, sand, interval_id = NA_character_, status, notes, opp_key = NA_character_)] else NULL
     b <- store_interventions(ctx$con)
-    b <- if (nrow(b)) b[, .(source = "app", well, date, type, sand, status, notes, opp_key)] else NULL
+    b <- if (nrow(b)) b[, .(source = "app", job, well, date, type, sand, interval_id, status, notes, opp_key)] else NULL
     x <- data.table::rbindlist(list(a, b), fill = TRUE)
     if (nrow(x)) data.table::setorder(x, -date)
     x
@@ -294,45 +418,68 @@ opportunities_server <- function(input, output, session, ctx) {
     x <- ivs(); if (!nrow(x)) x <- data.table::data.table(Message = "No interventions yet")
     dt_dark(x, pageLength = 10)
   })
-  ev <- shiny::reactive({
-    x <- ivs(); i <- input$opp_iv_rows_selected
-    if (!nrow(x) || is.null(i)) return(NULL)
-    evaluate_intervention(ctx$res(), ctx$series_all(), x[i], ctx$asof())
+  job_sel <- shiny::reactive({ x <- ivs(); i <- input$opp_iv_rows_selected; if (!nrow(x) || is.null(i)) NULL else x[i] })
+  well_eval <- shiny::reactive({
+    j <- job_sel(); if (is.null(j)) return(NULL)
+    fr <- if (!is.na(j$opp_key)) store_frozen(ctx$con, j$opp_key) else NULL
+    evaluate_well_job(ctx$res(), j$well, j$date, fr, ctx$asof())
   })
-  output$opp_eval <- DT::renderDT({
-    e <- ev(); if (is.null(e) || !nrow(e)) e <- data.table::data.table(Message = "Select an executed job with at least one month of data after it")
-    else e <- e[, .(Pattern = pattern, Metric = metric, Before = signif(before, 3), After = signif(after, 3),
-                    `Change %` = round(100 * (after / before - 1)), `Incremental oil vs fit (stb)` = round(incremental_oil_stb), Months = months_after)]
-    dt_dark(e, dom = "t", pageLength = 20, ordering = FALSE)
+  output$opp_eval_head <- shiny::renderUI({
+    j <- job_sel(); if (is.null(j)) return(htmltools::h6(class = "wf-h6", "Select a job: incremental oil over the well's pre-job decline, against the forecast frozen at validation"))
+    v <- job_verdict(well_eval())
+    htmltools::div(htmltools::h6(class = "wf-h6", sprintf("%s %s on %s, %s", j$type, data.table::fcoalesce(j$sand, ""), j$well, format(j$date, "%b %Y"))),
+      badge(v$verdict, switch(v$verdict, "above Alto" = pal$ok, "within range" = pal$accent, "below Bajo" = pal$crit, pal$muted)),
+      if (is.finite(v$ratio)) badge(sprintf("actual / Base %s over %d months", fmtn(v$ratio), v$months), pal$warn),
+      if (!is.na(j$opp_key)) shiny::actionLink("opp_eval_rec", "Record this verdict as the outcome", class = "wf-link"))
+  })
+  shiny::observeEvent(input$opp_eval_rec, {
+    j <- job_sel(); v <- job_verdict(well_eval()); shiny::req(j, !is.na(j$opp_key))
+    store_add_outcome(ctx$con, j$opp_key, v$verdict, "frozen Base profile", sprintf("actual / Base %s", fmtn(v$ratio)), j$job %||% "")
+    store_set_state(ctx$con, j$opp_key, status = "outcome_evaluated", comment = v$verdict); bump()
   })
   output$opp_eval_plot <- plotly::renderPlotly({
-    x <- ivs(); i <- input$opp_iv_rows_selected
-    if (!nrow(x) || is.null(i)) return(empty_plot("Select a job"))
-    j <- x[i]; pats <- unique(ctx$res()$alloc[well == j$well & coeff > 0, pattern])
-    s <- ctx$series_all()[entity %in% pats & date >= j$date - 3 * 365 & date <= ctx$asof()]
-    p <- plotly::plot_ly(s, x = ~date, y = ~tp, color = ~entity, type = "scatter", mode = "lines", colors = cluster_palette)
-    p <- plotly::add_lines(p, data = s, x = ~date, y = ~qo / 10, color = ~entity, line = list(dash = "dot"), showlegend = FALSE)
-    plotly::layout(pl_theme(p, NULL, "Inj TP %/yr (solid) · oil/10 bopd (dotted)"), shapes = list(vline_shape(j$date, pal$warn)))
+    e <- well_eval(); if (is.null(e) || !nrow(e)) return(empty_plot("Select an executed job with at least one month of data after it"))
+    p <- plotly::plot_ly(e, x = ~month)
+    if (any(is.finite(e$fc_alto))) p <- plotly::add_ribbons(p, ymin = ~fc_bajo, ymax = ~fc_alto, name = "Bajo-Alto", fillcolor = "rgba(34,211,238,0.12)", line = list(width = 0))
+    if (any(is.finite(e$fc_base))) p <- plotly::add_lines(p, y = ~fc_base, name = "Base (frozen)", line = list(color = pal$oil, dash = "dash"))
+    p <- plotly::add_lines(p, y = ~inc_qo, name = "Actual incremental", line = list(color = pal$warn, width = 2.5))
+    p <- plotly::add_lines(p, y = ~baseline_qo, name = "Pre-job decline", line = list(color = pal$muted, dash = "dot"))
+    pl_theme(p, "Month after the job", "Oil, bopd")
+  })
+  output$opp_eval <- DT::renderDT({
+    j <- job_sel(); if (is.null(j)) return(dt_dark(data.table::data.table(Message = "Select a job"), dom = "t"))
+    pats <- evaluate_intervention(ctx$res(), ctx$series_all(), j, ctx$asof())
+    if (is.null(pats) || !nrow(pats)) return(dt_dark(data.table::data.table(Message = "No pattern before / after for this job (well outside the waterflood patterns, or no data after the job date)"), dom = "t"))
+    e <- pats[, .(Pattern = pattern, Metric = metric, Before = signif(before, 3), After = signif(after, 3),
+                  `Change %` = round(100 * (after / before - 1)), `Incremental oil vs fit (stb)` = round(incremental_oil_stb), Months = months_after)]
+    dt_dark(e, dom = "t", pageLength = 20, ordering = FALSE)
   })
 
   output$opp_rules <- shiny::renderUI({
     st <- ctx$settings()
-    rules <- data.table::data.table(
-      Type = paste(names(opp_types), opp_types),
+    pr <- data.table::data.table(
+      Rule = paste(names(opp_types), opp_types), `Well action` = paste(pattern_rule_action, action_label(pattern_rule_action)),
+      Target = c("dominant injector, unit", "dominant injector", "producer with the largest pattern share (high fluid level first)",
+                 "dominant injector, unit", "dominant injector, top unit", "dominant injector"),
       `Screening signal` = c(sprintf("Unit DWI in the area's top %d %% and above 1.2x the pattern DWI", round(100 * (1 - st$unit_dwi_q))),
                              sprintf("Inj TP down more than %d %% in 12 months, or below half the target", round(100 * st$tp_drop)),
-                             sprintf("IWR 12 m above %.1f", st$iwr_high), "ADPERF in the last 3 years in a unit",
-                             "DWI at or above the area median with OPR below 1", sprintf("Inj TP more than %d %% off target", round(100 * st$tp_off))),
-      `Corroborating evidence` = c("Unit TP above target (V); rate above Cobb (O); high pattern utilization or water cut (M)",
-                                   "Efficient or immature (M); units losing injectivity (U); VRF open but rate below 60 % of Cobb (O)",
-                                   "Utilization at or below area median (M); fluid level above threshold (O); low Loss (S)",
-                                   "Unit TP below half the target (V); unit immature (U)",
-                                   "High utilization (V); injection concentrated in one unit (U); producer HI or Evol ratio (S)",
-                                   "Maturity agrees: immature and efficient to raise, mature and cycling to cut (M); IWR (S)"))
+                             sprintf("IWR 12 m above %.1f", st$iwr_high), "Logged ADPERF in the last 3 years in a unit with little injection",
+                             "DWI at or above the area median with OPR below 1", sprintf("Inj TP more than %d %% off target", round(100 * st$tp_off))))
+    wr <- data.table::data.table(
+      Rule = paste(names(well_rules), well_rules), `Well action` = c("ADPERF", "WSO", "STIM_PROD or LIFT", "REACTIVATE"),
+      Source = c("Intervals (closed or partly open) + Profiles", "Intervals (open)", "Wells monthly rates, WellStatus", "Wells monthly rates"),
+      `Evidence` = c(sprintf("M: Np/OOIP <= %s or Sw actual <= %s · U: kh >= unit median and BSW < %s %% · S: Voronoi area >= unit median · V: injection support of the unit in the well's waterflood patterns (TP >= half the target)",
+                             st$int_npooip_max, st$int_sw_max, st$int_bsw_max),
+                     sprintf("U: initial BSW >= %s %% · M: Sw actual >= %s · O: well water cut near the limit", st$wso_bsw, st$int_sw_max),
+                     sprintf("V: oil %d %% below the well's own decline over 6 months · O: fluid level >= %s ft (then LIFT) · M: Sw actual of the open intervals", round(100 * st$decline_drop), st$dfl_high),
+                     sprintf("O: no production for %d months · M: last rate above field median or Sw actual of the open intervals", st$shutin_months)))
     htmltools::tagList(
-      htmltools::p(class = "wf-muted", "Candidate = two or more evidence families including maturity (M) or velocity (V). Thresholds and score weights are in Data & reference › Settings."),
-      DT::renderDT(dt_dark(rules, dom = "t", ordering = FALSE)),
-      htmltools::p(class = "wf-muted small", sprintf("Priority score = %d %% evidence count + %d %% indicative oil gain (waterflood fit) + %d %% remaining waterflood oil, each scaled to the largest candidate.",
-                                                     round(100 * st$w_evidence), round(100 * st$w_gain), round(100 * st$w_stake))))
+      htmltools::p(class = "wf-muted", "Candidate = two or more evidence families including maturity (M) or velocity (V). Pattern rules run only on waterflood patterns;",
+                   "well rules run in every drive. A well outside the waterflood patterns is primary. Thresholds and weights are in Data & reference › Settings."),
+      htmltools::h6(class = "wf-h6", "Pattern lens (waterflood, other injection methods)"), DT::renderDT(dt_dark(pr, dom = "t", ordering = FALSE)),
+      htmltools::h6(class = "wf-h6", "Well lens (all drives)"), DT::renderDT(dt_dark(wr, dom = "t", ordering = FALSE)),
+      htmltools::p(class = "wf-muted small", "Other analyses: table Findings (Source, Well, Unit, Interval_ID, Action, Family, Metric, Value, Reference, Comment, Gain_bopd). Each source is its own lens; rows on the same target merge with the app's findings, and Profiles with the same keys give their forecast."),
+      htmltools::p(class = "wf-muted small", sprintf("Priority score = %d %% evidence count + %d %% gain rate + %d %% EUR / remaining oil − %d %% Bajo-Alto spread, each scaled to the largest candidate. Volumes only: set WF_ECON_FILE to plug in the economic function.",
+                                                     round(100 * st$w_evidence), round(100 * st$w_gain), round(100 * st$w_stake), round(100 * st$w_unc))))
   })
 }

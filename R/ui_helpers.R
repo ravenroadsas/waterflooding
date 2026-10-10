@@ -5,6 +5,7 @@ pal <- list(bg = "#0b1220", panel = "#111a2b", line = "#1f2b40", text = "#d6e0ee
             ok = "#2dd4bf", accent = "#22d3ee", proto = "#e2e8f0")
 
 fmt_num <- function(x, d = 0) ifelse(is.na(x) | !is.finite(x), "–", formatC(x, format = "f", digits = d, big.mark = ","))
+fmt_int <- function(x) fmt_num(x, 0)
 fmt_pct <- function(x, d = 1) ifelse(is.na(x) | !is.finite(x), "–", paste0(formatC(100 * x, format = "f", digits = d), "%"))
 fmt_mm <- function(x, d = 2) ifelse(is.na(x) | !is.finite(x), "–", paste0(formatC(x / 1e6, format = "f", digits = d), " MM"))
 fmt_month <- function(d) format(d, "%b %Y")
