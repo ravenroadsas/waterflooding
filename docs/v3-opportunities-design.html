@@ -1,0 +1,421 @@
+<title>Well-Centric Opportunities</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a single reading column of numbered design decisions; mockups and tables sit in scrollable wells. */
+:root{
+ --paper:#eef1f5;--panel:#ffffff;--panel-2:#f6f8fb;--ink:#0f1a2a;--ink-2:#2d3b50;--muted:#5b687b;--rule:#d7dde6;
+ --accent:#0b7285;--accent-soft:#dff1f4;--code:#e3e8ef;
+ --oil:#2f7d32;--water:#1f6fb2;--warn:#b25e09;--bad:#b42318;--ok:#2f7d32;
+ --c-pat:#6d4bc2;--c-well:#0b7285;--c-field:#8a6a12;
+ --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--cond:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --paper:#0d141e;--panel:#131c28;--panel-2:#182232;--ink:#e6ecf3;--ink-2:#c3cedb;--muted:#8796a8;--rule:#263346;
+ --accent:#4fc3d4;--accent-soft:#12303a;--code:#1d2938;--oil:#6cc070;--water:#5aa9e6;--warn:#e7a04a;--bad:#f07167;--ok:#6cc070;
+ --c-pat:#a68cf0;--c-well:#4fc3d4;--c-field:#d8b44a;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --paper:#0d141e;--panel:#131c28;--panel-2:#182232;--ink:#e6ecf3;--ink-2:#c3cedb;--muted:#8796a8;--rule:#263346;
+ --accent:#4fc3d4;--accent-soft:#12303a;--code:#1d2938;--oil:#6cc070;--water:#5aa9e6;--warn:#e7a04a;--bad:#f07167;--ok:#6cc070;
+ --c-pat:#a68cf0;--c-well:#4fc3d4;--c-field:#d8b44a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.6 var(--sans)}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:32px 64px}
+header{margin-bottom:28px;display:grid;gap:10px}
+.eyebrow{font:500 12px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,4vw,44px)/1.05 var(--cond);margin:0;text-wrap:balance}
+h2{font:600 clamp(22px,2.4vw,28px)/1.15 var(--cond);margin:4px 0 10px;text-wrap:balance}
+h3{font:600 17px/1.3 var(--cond);margin:18px 0 6px}
+p,li{color:var(--ink-2)}
+p{margin:0 0 10px;max-width:78ch}
+ul,ol{margin:0 0 10px;padding-left:20px;max-width:80ch}
+li{margin-bottom:4px}
+section{padding-bottom:36px;margin-bottom:36px;border-bottom:1px solid var(--rule)}
+section:last-child{border-bottom:0}
+code{font-family:var(--mono);font-size:.84em;background:var(--code);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.lead{font-size:17px;max-width:72ch}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;min-width:0}
+.box h3{margin-top:0}
+.box p:last-child,.box ul:last-child{margin-bottom:0}
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:10px;background:var(--panel);margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:600 11px/1.3 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--panel-2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.k{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
+.tag{display:inline-block;font:600 10px/1 var(--mono);letter-spacing:.06em;padding:4px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+.t-pat{color:var(--c-pat)}.t-well{color:var(--c-well)}.t-field{color:var(--c-field)}
+.on{color:var(--ok);font-weight:600}.off{color:var(--muted)}.part{color:var(--warn);font-weight:600}
+.new{color:var(--accent);font:600 10px/1 var(--mono);letter-spacing:.06em}
+/* entity diagram */
+.chain{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:14px 0}
+.chain .n{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 12px;min-width:0;flex:1 1 150px}
+.chain .n b{display:block;font:600 14px/1.2 var(--cond)}
+.chain .n span{font-size:12px;color:var(--muted)}
+.chain .n.core{border-color:var(--accent);background:var(--accent-soft)}
+.chain .a{align-self:center;color:var(--muted);font-family:var(--mono)}
+/* mockups */
+.shot{overflow-x:auto;border:1px solid var(--rule);border-radius:12px;background:var(--panel-2);margin:14px 0 8px}
+.scr{min-width:980px;font:11px/1.35 system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink)}
+.scr .bar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--rule)}
+.scr .bar b{font-size:13px}
+.scr .seg{display:flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.scr .seg span{padding:4px 10px;color:var(--muted);border-right:1px solid var(--rule)}
+.scr .seg span:last-child{border-right:0}
+.scr .seg span.sel{background:var(--accent-soft);color:var(--ink);font-weight:600}
+.scr .chip{padding:3px 8px;border-radius:12px;background:var(--panel-2);border:1px solid var(--rule);color:var(--ink-2)}
+.scr .sp{margin-left:auto}
+.scr .cols{display:grid;grid-template-columns:330px minmax(0,1fr);gap:10px;padding:10px}
+.scr .cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:10px}
+.scr .card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:10px;min-width:0}
+.scr .card h4{margin:0 0 8px;font:600 10px/1.2 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.scr .well{border:1px solid var(--rule);border-radius:7px;padding:7px 8px;margin-bottom:6px;background:var(--panel)}
+.scr .well.sel{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.scr .well .hd{display:flex;justify-content:space-between;font-weight:600;font-size:12px}
+.scr .well .ops{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.scr .op{font:600 9.5px/1 var(--mono);padding:3px 5px;border-radius:3px;border:1px solid currentColor}
+.scr .num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.scr .kv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.scr .kv div{background:var(--panel-2);border-radius:6px;padding:6px}
+.scr .kv small{display:block;color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em}
+.scr .kv b{font:600 14px/1.2 var(--mono)}
+.scr table{font-size:10.5px}
+.scr th{font-size:9px;padding:4px 6px}
+.scr td{padding:4px 6px}
+.scr .chk{display:flex;gap:6px;align-items:center;margin:3px 0;color:var(--ink-2)}
+.scr .chk i{width:11px;height:11px;border:1px solid var(--muted);border-radius:2px;display:inline-block;font-style:normal;font-size:9px;line-height:10px;text-align:center}
+.scr .chk i.y{background:var(--ok);border-color:var(--ok);color:var(--panel)}
+.scr svg text{fill:var(--muted);font:9.5px var(--mono)}
+.cap{font-size:13px;color:var(--muted);max-width:90ch}
+.q{counter-reset:q;list-style:none;padding:0;max-width:none}
+.q li{counter-increment:q;display:grid;grid-template-columns:34px minmax(0,1fr);gap:6px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.q li::before{content:"Q" counter(q);font:600 12px/1.6 var(--mono);color:var(--accent)}
+.q li:last-child{border-bottom:0}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+ <div class="eyebrow">FloodPulse · module 3 redesign · analysis before code</div>
+ <h1>Well-centric opportunities</h1>
+ <p class="lead">Every opportunity ends as a job on a well. Patterns, single-well analysis and field reviews are lenses that produce evidence. The well, its unit and its interval are the target that is ranked, validated, executed and evaluated. The same module serves waterflooded, primary and other-method fields; a lens is switched on only when its data and drive mechanism are present.</p>
+</header>
+
+<section id="diagnosis">
+ <div class="eyebrow">1 · What changes</div>
+ <h2>Diagnosis of the current module</h2>
+ <div class="grid2">
+  <div class="box">
+   <h3>Today (v2)</h3>
+   <ul>
+    <li>Key is <code>type|pattern|sand</code>. The pattern is the target.</li>
+    <li>Rules A–F need injection, a flood start and prototypes. A primary field produces no opportunities.</li>
+    <li>The well is optional. Rules C and E can leave it empty; others attach the dominant injector.</li>
+    <li>Gain is a waterflood-fit estimate. There is no forecast range, no water forecast, no interval depth.</li>
+    <li>Rule D (ADPERF support) looks at logged ADPERF jobs only. It cannot see new intervals that are still candidates.</li>
+   </ul>
+  </div>
+  <div class="box">
+   <h3>Proposed (v3)</h3>
+   <ul>
+    <li>Key is <code>action|well|unit|interval</code>. A pattern finding is projected onto the wells that carry it.</li>
+    <li>Three lenses produce findings: <span class="tag t-pat">PATTERN</span> <span class="tag t-well">WELL</span> <span class="tag t-field">FIELD</span>. Findings on the same target merge into one opportunity with several families of evidence.</li>
+    <li>The drive mechanism per field and unit switches lenses and rules on or off.</li>
+    <li>Gain comes from the Bajo/Base/Alto monthly profiles where they exist, otherwise from the waterflood fit or a decline fit.</li>
+    <li>Rule D becomes support evidence attached to well-interval opportunities.</li>
+   </ul>
+  </div>
+ </div>
+</section>
+
+<section id="model">
+ <div class="eyebrow">2 · Data model</div>
+ <h2>One chain from finding to outcome</h2>
+ <div class="chain">
+  <div class="n"><b>Finding</b><span>lens, rule, metrics, family</span></div><div class="a">→</div>
+  <div class="n core"><b>Opportunity</b><span>action on well · unit · interval</span></div><div class="a">→</div>
+  <div class="n"><b>Forecast</b><span>Bajo / Base / Alto, frozen at validation</span></div><div class="a">→</div>
+  <div class="n"><b>Job</b><span>one rig visit, one or more opportunities</span></div><div class="a">→</div>
+  <div class="n"><b>Outcome</b><span>actual vs Base, calibration factor</span></div>
+ </div>
+ <p>The hierarchy becomes <code>ORGUNIT › FIELD › (Area) › Well › Unit › Interval</code>. A pattern is a weighted set of wells (Alloc). It stays as a lens and as context, never as a target.</p>
+
+ <div class="tbl"><table>
+  <tr><th>Object</th><th>Key</th><th>Main fields</th><th>Lives in</th></tr>
+  <tr><td class="k">finding</td><td class="k">lens|rule|well|unit|interval</td><td>lens (PATTERN, WELL, FIELD), rule id, family (M V U S O), evidence rows, text, source entity (pattern P07, interval INT001, field AMB)</td><td>generated each run</td></tr>
+  <tr><td class="k">opportunity</td><td class="k">action|well|unit|interval</td><td>target well, well type, unit, interval_id, top/base, action, lenses, families, n_fam, auto_status, gain_12m (Base), EUR, range (Alto−Bajo), water_12m, score</td><td>generated; state in SQLite</td></tr>
+  <tr><td class="k">forecast</td><td class="k">opp_key|scenario|month</td><td>qo, qw, qf, b, Di; source (PROFILE, SF_FIT, ARPS); version stamp</td><td>SQLite, frozen copy at validation</td></tr>
+  <tr><td class="k">job</td><td class="k">job_id</td><td>well, date, opp_keys[], job type, cost class, status</td><td>SQLite (replaces <code>interventions</code>)</td></tr>
+  <tr><td class="k">outcome</td><td class="k">job_id|opp_key</td><td>actual Δqo, Δqw by month, baseline used, ratio actual/Base, verdict (above Alto, within range, below Bajo)</td><td>SQLite</td></tr>
+ </table></div>
+ <p class="cap">Freezing the forecast at validation matters. The single-well analysis will be re-run with new Np and Sw, and the post-job comparison must use the forecast the decision was based on.</p>
+</section>
+
+<section id="tables">
+ <div class="eyebrow">3 · New input tables</div>
+ <h2>INTERVALOS and PERFILES_MENSUALES in the schema</h2>
+ <p>Both tables load as optional source tables (<code>Intervals</code>, <code>Profiles</code>) with the Spanish names as aliases. <code>UNIT</code> maps to the existing <code>Sand</code>, <code>WELL</code> to <code>Well</code>, <code>FIELD</code> to Hierarchy <code>Field</code>; <code>ORGUNIT</code> is a new level above Field. Join keys: <code>ORGUNIT, WELL, UNIT, intervalo_id</code>.</p>
+ <div class="grid2">
+ <div class="tbl"><table>
+  <tr><th>Intervals (25)</th><th>Used for</th></tr>
+  <tr><td class="k">ORGUNIT FIELD WELL UNIT intervalo_id</td><td>target key; drive context lookup</td></tr>
+  <tr><td class="k">top_ft base_ft</td><td>depth strip in Well 360; overlap check with open intervals</td></tr>
+  <tr><td class="k">estado_apertura</td><td>action: cerrado → OPEN or REOPEN · parcial → EXTEND · abierto → no opening action, WSO screening</td></tr>
+  <tr><td class="k">h_net_ft kabs_md phi sw_las kh_md_ft</td><td>family U (interval quality vs well and unit percentiles)</td></tr>
+  <tr><td class="k">area_ac</td><td>family S (drainage left, Voronoi)</td></tr>
+  <tr><td class="k">ooip_stb rf eur_stb</td><td>stake; EUR check against profile cumulative</td></tr>
+  <tr><td class="k">np_total_pozo_stb np_ooip_ratio sw_actual</td><td>family M (depletion of the interval); cross-check with pattern unit DWI</td></tr>
+  <tr><td class="k">bsw_inicial_pct qo/qw/qf_inicial</td><td>headline rates; water handling</td></tr>
+  <tr><td class="k">qa_resultado</td><td>gate: not OK → capped at <code>screening_only</code> and listed as a data gap</td></tr>
+ </table></div>
+ <div class="tbl"><table>
+  <tr><th>Profiles (14)</th><th>Used for</th></tr>
+  <tr><td class="k">join keys + escenario mes</td><td>forecast rows Bajo / Base / Alto, month 1..T</td></tr>
+  <tr><td class="k">qoi_bopd qwi_bwpd</td><td>initial rates per scenario. <code>qwi</code> is water <em>production</em>; stored internally as <code>qw0_bwpd</code> so it never mixes with BWIPD</td></tr>
+  <tr><td class="k">qo/qw/qf_perfil</td><td>gain_12m, water_12m, cumulative vs EUR, fan chart, post-job comparison</td></tr>
+  <tr><td class="k">b di_por_mes</td><td>extend beyond T; rebuild check of the hyperbolic curve</td></tr>
+ </table></div>
+ </div>
+ <h3>Validation added to the Data page</h3>
+ <div class="tbl"><table>
+  <tr><th>Check</th><th>Rule</th><th>On failure</th></tr>
+  <tr><td>Unique interval</td><td>one row per ORGUNIT, WELL, UNIT, intervalo_id</td><td>error, table rejected</td></tr>
+  <tr><td>Depth</td><td>top_ft &lt; base_ft; no overlap between intervals of one well</td><td>warning per row</td></tr>
+  <tr><td>Orphans</td><td>every profile has an interval; every WELL exists in Wells or Hierarchy</td><td>warning; orphans ignored</td></tr>
+  <tr><td>Base = initial</td><td>Base qoi = qo_inicial, qwi = qw_inicial, qf_perfil = qf_inicial (tolerance 1 %)</td><td>warning; opportunity flagged</td></tr>
+  <tr><td>Constant liquid</td><td>qf_perfil constant within a scenario and = qo + qw each month</td><td>warning</td></tr>
+  <tr><td>Scenario order</td><td>qoi Bajo ≤ Base ≤ Alto</td><td>warning</td></tr>
+  <tr><td>Decline rebuild</td><td>qo_perfil ≈ qoi / (1 + b·Di·t)^(1/b) (b = 0 → exponential)</td><td>information only</td></tr>
+  <tr><td>Months</td><td>mes contiguous from 1, same T for the three scenarios</td><td>warning</td></tr>
+ </table></div>
+</section>
+
+<section id="drive">
+ <div class="eyebrow">4 · Drive mechanism</div>
+ <h2>Lenses switch on from data and drive</h2>
+ <p>A small optional table <code>Drive</code> (Field, Unit, Mechanism, Start) declares how each field or unit is produced: <code>primary</code>, <code>waterflood</code>, <code>polymer</code>, <code>gas</code>, <code>steam</code>, <code>other</code>. Without it the app infers waterflood from Baseline and injection, and primary otherwise. A rule runs only when its data are present and its drive matches.</p>
+ <div class="tbl"><table>
+  <tr><th>Rule</th><th>Lens</th><th>Well action produced</th><th>Waterflood</th><th>Primary</th><th>Other injection (polymer, gas)</th></tr>
+  <tr><td class="k">A</td><td><span class="tag t-pat">PATTERN</span></td><td>ISOLATE or VRF down on the injector unit</td><td class="on">on</td><td class="off">off</td><td class="part">on, own prototype</td></tr>
+  <tr><td class="k">B</td><td><span class="tag t-pat">PATTERN</span></td><td>STIM_INJ on the injector</td><td class="on">on</td><td class="off">off</td><td class="part">on</td></tr>
+  <tr><td class="k">C</td><td><span class="tag t-pat">PATTERN</span></td><td>LIFT or STIM_PROD on the producer with the largest pattern share and high DFL</td><td class="on">on</td><td class="off">via W4</td><td class="part">on</td></tr>
+  <tr><td class="k">D</td><td><span class="tag t-pat">PATTERN</span></td><td>no own action; adds support evidence (V) to W1 on the same well and unit</td><td class="on">evidence</td><td class="off">off</td><td class="part">evidence</td></tr>
+  <tr><td class="k">E</td><td><span class="tag t-pat">PATTERN</span></td><td>profile modification on the injector, or WSO on the producer interval</td><td class="on">on</td><td class="off">off</td><td class="part">on</td></tr>
+  <tr><td class="k">F</td><td><span class="tag t-pat">PATTERN</span></td><td>RATE change on the injector to target TP or Cobb</td><td class="on">on</td><td class="off">off</td><td class="part">on, own target</td></tr>
+  <tr><td class="k">W1 <span class="new">NEW</span></td><td><span class="tag t-well">WELL</span></td><td>OPEN, REOPEN or EXTEND an interval (from INTERVALOS + profiles)</td><td class="on">on</td><td class="on">on</td><td class="on">on</td></tr>
+  <tr><td class="k">W2 <span class="new">NEW</span></td><td><span class="tag t-well">WELL</span></td><td>WSO on an open interval with sw_actual high and well water cut above unit median</td><td class="on">on</td><td class="on">on</td><td class="on">on</td></tr>
+  <tr><td class="k">W3 <span class="new">NEW</span></td><td><span class="tag t-well">WELL</span></td><td>STIM_PROD or LIFT when the well rate falls faster than its own decline fit, or DFL stays high</td><td class="on">on</td><td class="on">on</td><td class="on">on</td></tr>
+  <tr><td class="k">W4 <span class="new">NEW</span></td><td><span class="tag t-well">WELL</span></td><td>REACTIVATE a shut-in well with remaining EUR in its intervals</td><td class="on">on</td><td class="on">on</td><td class="on">on</td></tr>
+  <tr><td class="k">G1 <span class="new">NEW</span></td><td><span class="tag t-field">FIELD</span></td><td>CONVERT producer to injector (pattern design gap); later phase</td><td class="part">later</td><td class="part">pilot screening</td><td class="part">later</td></tr>
+ </table></div>
+ <h3>Evidence families keep their letters, with a drive-neutral meaning</h3>
+ <div class="tbl"><table>
+  <tr><th>Family</th><th>Waterflood signal</th><th>Primary signal</th><th>Interval signal (W lens)</th></tr>
+  <tr><td class="k">M maturity</td><td>OPR, Sec RF vs prototype, DWI</td><td>RF of the unit, Np vs EUR of the well</td><td>np_ooip_ratio low, sw_actual well below 1 − Sor</td></tr>
+  <tr><td class="k">V velocity</td><td>TP, IWR, utilization</td><td>decline rate vs the field type curve</td><td>injection support of the unit in the well's patterns (rule D)</td></tr>
+  <tr><td class="k">U unit / vertical</td><td>vertical efficiency, unit DWI</td><td>unit share of well production</td><td>kh, h_net above the well and unit percentile; bsw_inicial below threshold</td></tr>
+  <tr><td class="k">S spatial</td><td>HI, offsets, map position</td><td>offset wells producing the unit</td><td>area_ac (Voronoi) above unit median; offsets already open in the unit</td></tr>
+  <tr><td class="k">O operations</td><td>DFL, lift, status</td><td>same</td><td>well status, lift capacity for qf, water handling headroom</td></tr>
+ </table></div>
+ <p class="cap">Status logic is unchanged: one family is <code>screening_only</code>; two or more including M or V is <code>candidate</code>. An interval with only good petrophysics stays in screening until depletion (M) or support (V) confirms it.</p>
+</section>
+
+<section id="merge">
+ <div class="eyebrow">5 · Projection and merge</div>
+ <h2>How pattern findings reach a well</h2>
+ <ol>
+  <li><b>Injector actions</b> (A, B, E-injector, F): target the injector with the largest allocated contribution to the pattern, and the unit from InjSand. Same as today's dominant injector, but the well becomes mandatory.</li>
+  <li><b>Producer actions</b> (C, E-producer): target the producer with the largest pattern share of withdrawal, and among those the one with the highest HI or DFL. A pattern with no qualifying producer gives a finding without a target. It shows under "unassigned findings" and cannot be validated.</li>
+  <li><b>Support</b> (D): for each W1 candidate, look up the well's patterns in Alloc and the unit's DWI and TP there. Support above the unit percentile adds family V. High DWI with low sw_actual adds a consistency warning, because the interval may already be swept.</li>
+  <li><b>Merge</b>: findings with the same <code>action|well|unit|interval</code> become one opportunity; families are the union. Findings on the same well with different actions stay separate opportunities, then group into one <b>job package</b> per well.</li>
+ </ol>
+ <div class="box">
+  <h3>Worked example from the attached table</h3>
+  <p><code>OPEN|CIRA1001|B|INT001</code>. INTERVALOS gives qo 150, qw 1,350, qf 1,500 bfpd (BSW 90 %), estado cerrado. W1 creates the finding with family U (kh above P75) and M (np_ooip_ratio low). CIRA1001 is 60 % in pattern P07, where unit B has TP 9 %/yr and DWI 0.42, so rule D adds V. That gives three families, status <code>candidate</code>. Base profile month 12 gives the 12-month gain; the Bajo–Alto spread (50–300 bopd initial) sets the uncertainty. If rule C also fired on P07 for CIRA1001 (high DFL), a LIFT opportunity joins the same job package.</p>
+ </div>
+</section>
+
+<section id="rank">
+ <div class="eyebrow">6 · Ranking and forecast</div>
+ <h2>Score from evidence, profiles and water</h2>
+ <p><code>score = w_e·n_fam/5 + w_g·gain12/max + w_r·EUR/max − w_u·(Alto−Bajo)/Base − w_w·water12/max</code>, with weights in Settings. Each term reads the best source available for the target:</p>
+ <div class="tbl"><table>
+  <tr><th>Source</th><th>When</th><th>gain12 and EUR</th><th>Range</th></tr>
+  <tr><td class="k">PROFILE</td><td>interval has Bajo/Base/Alto rows</td><td>Σ qo_perfil Base over 12 months; Σ over T (extended with b, Di) vs eur_stb</td><td>Bajo and Alto rows</td></tr>
+  <tr><td class="k">SF_FIT</td><td>waterflood pattern action with a valid fit</td><td>today's waterflood-fit gain, split by allocation coefficient to the well</td><td>±1 σ of the fit</td></tr>
+  <tr><td class="k">ARPS</td><td>W3 / W4 in any drive</td><td>restored rate minus current decline, 12 months</td><td>b in 0 to 1</td></tr>
+  <tr><td class="k">none</td><td>no basis</td><td>gain unknown, ranked on evidence only</td><td>shown as data gap</td></tr>
+ </table></div>
+ <p>A risk factor per action and field, <code>P(success)</code>, starts at a setting value (0.7) and is replaced by the observed hit rate once at least five outcomes exist. The portfolio shows Base and risked values side by side.</p>
+ <h3>Post-job evaluation</h3>
+ <ul>
+  <li>Baseline: the well's own pre-job decline (Arps, last 6–12 months), or the waterflood fit for injector jobs, as today.</li>
+  <li>Incremental actual = well test or monthly rate after the job minus the baseline. It is compared month by month with the frozen Base profile.</li>
+  <li>Verdict: above Alto, within the range, below Bajo. The ratio actual/Base per action and unit becomes the calibration factor shown next to future forecasts.</li>
+ </ul>
+</section>
+
+<section id="ui">
+ <div class="eyebrow">7 · Screens</div>
+ <h2>Opportunities portfolio, decision record, Well 360</h2>
+ <p>The tab keeps its place as step 3. The list groups by well; the right side is the decision record of the selected opportunity. Lens and drive filters sit in the bar. The values below are illustrative, except CIRA1001 / INT001, which come from the attached table.</p>
+
+ <div class="shot"><div class="scr">
+  <div class="bar"><b>3 Opportunities</b>
+   <div class="seg"><span class="sel">All lenses</span><span>Pattern</span><span>Well</span><span>Field</span></div>
+   <div class="seg"><span class="sel">All drives</span><span>Waterflood</span><span>Primary</span></div>
+   <span class="chip">ORGUNIT AOSP</span><span class="chip">FIELD AMB</span><span class="chip">Action: any</span>
+   <span class="sp chip">Portfolio · Board · Jobs · Outcomes · Rules</span>
+  </div>
+  <div class="cols">
+   <div class="card"><h4>Wells with opportunities · 14</h4>
+    <div class="well sel"><div class="hd"><span>CIRA1001 · producer</span><span class="num">score 0.78</span></div>
+     <div style="color:var(--muted)">P07 60 % · P08 40 % · waterflood</div>
+     <div class="ops"><span class="op t-well">OPEN B/INT001</span><span class="op t-pat">LIFT</span></div></div>
+    <div class="well"><div class="hd"><span>CIRA1044 · injector</span><span class="num">0.71</span></div>
+     <div style="color:var(--muted)">P02 · thief zone unit A</div>
+     <div class="ops"><span class="op t-pat">ISOLATE A</span><span class="op t-pat">PROFILE MOD</span></div></div>
+    <div class="well"><div class="hd"><span>INF0213 · producer</span><span class="num">0.64</span></div>
+     <div style="color:var(--muted)">primary · no pattern</div>
+     <div class="ops"><span class="op t-well">OPEN C/INT003</span><span class="op t-well">EXTEND D/INT004</span></div></div>
+    <div class="well"><div class="hd"><span>CIRA1130 · injector</span><span class="num">0.52</span></div>
+     <div style="color:var(--muted)">P13 · injectivity loss</div>
+     <div class="ops"><span class="op t-pat">STIM_INJ</span></div></div>
+    <div class="well"><div class="hd"><span>INF0188 · producer</span><span class="num">0.31</span></div>
+     <div style="color:var(--muted)">primary · shut-in 2025-11</div>
+     <div class="ops"><span class="op t-well">REACTIVATE</span></div></div>
+    <div style="color:var(--muted);margin-top:6px">Unassigned findings · 2 (pattern P04 has no producer that qualifies)</div>
+   </div>
+   <div class="card"><h4>Decision record · OPEN | CIRA1001 | B | INT001 · candidate</h4>
+    <div class="kv">
+     <div><small>Interval</small><b>5,210–5,236 ft</b></div>
+     <div><small>Initial qo / qw</small><b>150 / 1,350</b></div>
+     <div><small>Gain 12 m Base</small><b id="g12">–</b></div>
+     <div><small>EUR target</small><b>118 Mstb</b></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:10px">
+     <div>
+      <svg id="fan" viewBox="0 0 440 190" width="100%" role="img" aria-label="Oil rate forecast for INT001, Bajo, Base and Alto scenarios over 24 months"></svg>
+      <div style="color:var(--muted)">qo by scenario, bopd. Liquid constant per scenario: Bajo 1,000 · Base 1,500 · Alto 2,000 bfpd.</div>
+     </div>
+     <div>
+      <table><tr><th>Fam</th><th>Lens</th><th>Evidence</th></tr>
+       <tr><td>M</td><td class="t-well">WELL</td><td>Np/OOIP 0.08; Sw act 0.41</td></tr>
+       <tr><td>U</td><td class="t-well">WELL</td><td>kh 2,340 md·ft, P82 of unit B</td></tr>
+       <tr><td>V</td><td class="t-pat">P07 · D</td><td>unit B TP 9 %/yr, DWI 0.42</td></tr>
+       <tr><td>S</td><td class="t-well">WELL</td><td>area 31 ac, P40 (not met)</td></tr>
+      </table>
+      <div style="margin-top:6px">
+       <div class="chk"><i class="y">✓</i>QA resultado OK</div>
+       <div class="chk"><i class="y">✓</i>Base = initial rates</div>
+       <div class="chk"><i></i>Water handling 1,350 bwpd available</div>
+       <div class="chk"><i></i>Lift sized for 1,500 bfpd</div>
+       <div class="chk"><i></i>DWI 0.42 consistent with Sw act 0.41</div>
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
+ </div></div>
+ <p class="cap">Lens tags carry colour: violet for pattern, teal for well, ochre for field. The checklist mixes automatic checks (ticked by the app) with engineer checks.</p>
+
+ <div class="shot"><div class="scr">
+  <div class="bar"><b>Well 360 · CIRA1001</b><span class="chip">producer · ESP</span><span class="chip">waterflood · P07 60 % · P08 40 %</span><span class="sp chip">History · Intervals · Opportunities · Jobs · Patterns</span></div>
+  <div class="cols3">
+   <div class="card"><h4>Interval strip</h4>
+    <svg id="strip" viewBox="0 0 320 240" width="100%" role="img" aria-label="Depth strip of CIRA1001 intervals with status, kh and current water saturation"></svg>
+   </div>
+   <div class="card"><h4>Opportunities on this well</h4>
+    <table><tr><th>Action</th><th>Target</th><th>Status</th><th>Gain 12 m</th></tr>
+     <tr><td class="t-well">OPEN</td><td>B / INT001</td><td>candidate</td><td class="num">~46 Mstb</td></tr>
+     <tr><td class="t-pat">LIFT</td><td>well</td><td>screening</td><td class="num">n/a</td></tr>
+     <tr><td class="t-well">WSO</td><td>A / INT007</td><td>dismissed</td><td class="num">—</td></tr>
+    </table>
+    <p style="color:var(--muted);font-size:10.5px;margin:8px 0 0">Job package draft: OPEN B/INT001 + LIFT resize, one rig visit.</p>
+   </div>
+   <div class="card"><h4>Unit B in this well's patterns</h4>
+    <table><tr><th>Pattern</th><th>Share</th><th>DWI</th><th>TP</th><th>Stage</th></tr>
+     <tr><td>P07</td><td class="num">60 %</td><td class="num">0.42</td><td class="num">9.1</td><td>active</td></tr>
+     <tr><td>P08</td><td class="num">40 %</td><td class="num">0.18</td><td class="num">4.0</td><td>early</td></tr>
+    </table>
+    <p style="color:var(--muted);font-size:10.5px;margin:8px 0 0">Shown only when the well is in a waterflood. A primary well shows offset wells producing the unit instead.</p>
+   </div>
+  </div>
+ </div></div>
+ <p class="cap">Pattern 360 keeps its tabs. Its Opportunities tab lists well targets, each opening Well 360. Every plot point and table row that names a well opens Well 360.</p>
+</section>
+
+<section id="impl">
+ <div class="eyebrow">8 · Implementation plan</div>
+ <h2>Files and phases, after this design is approved</h2>
+ <div class="tbl"><table>
+  <tr><th>Phase</th><th>Work</th><th>Files</th></tr>
+  <tr><td class="k">1 · data</td><td>Intervals, Profiles, Drive specs with aliases; ORGUNIT level; validation checks; demo intervals for 6 wells, including 2 primary wells</td><td>schema.R, io.R, demo_data.R, tests</td></tr>
+  <tr><td class="k">2 · engine</td><td>findings layer; pattern rules re-targeted to wells; W1–W4; projection and merge; drive gating; forecast sources and score</td><td>opportunities.R (split into findings.R and opportunities.R), forecast.R (new)</td></tr>
+  <tr><td class="k">3 · store</td><td>new key; jobs, forecasts_frozen tables; one-time migration of v2 keys <code>type|pattern|sand</code> to the projected well key</td><td>store.R</td></tr>
+  <tr><td class="k">4 · UI</td><td>portfolio grouped by well, lens and drive filters, decision record with fan chart and checks, Jobs tab, Well 360 drawer</td><td>mod_opportunities.R, mod_w360.R (new), mod_p360.R, app.R</td></tr>
+  <tr><td class="k">5 · evaluation</td><td>Arps baseline, actual vs frozen Base, verdicts, calibration factor and P(success)</td><td>forecast.R, mod_opportunities.R</td></tr>
+ </table></div>
+ <p>The pattern rules keep their thresholds and settings. Their tests stay, with an extra assertion that every validated opportunity has a well.</p>
+</section>
+
+<section id="questions">
+ <div class="eyebrow">9 · To confirm</div>
+ <h2>Open questions</h2>
+ <ol class="q">
+  <li><div><b>qa_resultado values.</b> Which values exist, and which ones mean the interval is usable? Proposal: <code>OK</code> passes, anything else caps the opportunity at screening.</div></li>
+  <li><div><b>estado_apertura.</b> Does INTERVALOS list every interval of the well, including never-perforated ones as <code>cerrado</code>? If so, how do we tell "never opened" (OPEN) from "isolated earlier" (REOPEN)? Proposal: use the Interventions history; without it, call both OPEN.</div></li>
+  <li><div><b>Incremental vs total.</b> Is qo_inicial the rate of the interval alone, so the well gain is that rate (commingled), or does opening it change the rates of the open intervals? Proposal: treat it as incremental for now.</div></li>
+  <li><div><b>qw_perfil increment.</b> The image says this method is still to be agreed. Until then the app reads qw_perfil as delivered and only checks qf = qo + qw.</div></li>
+  <li><div><b>ORGUNIT.</b> Is it above FIELD (asset or business unit), and is it needed as a filter and a join key, or only as a label?</div></li>
+  <li><div><b>Economics.</b> Do you want a simple value (oil price, lifting cost per barrel of water, cost per job type) in Settings now, or ranking on volumes only for the pilot?</div></li>
+  <li><div><b>Drive table.</b> Can you provide Field, Unit, Mechanism, Start, or should the app infer the drive from injection data only?</div></li>
+  <li><div><b>Other lenses.</b> Besides single producer analysis, will there be single injector analysis or field-level studies (infill, conversion) delivering their own tables? The finding layer accepts them, but each needs its own mapping.</div></li>
+ </ol>
+</section>
+</div>
+
+<script>
+(function(){
+ var NS="http://www.w3.org/2000/svg";
+ function el(t,a,txt){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e}
+ // Hyperbolic decline; illustrative b and Di per scenario, initial rates from the attached example.
+ var sc=[{n:"Bajo",q:50,b:0.5,d:0.05,c:"var(--warn)"},{n:"Base",q:150,b:0.5,d:0.035,c:"var(--oil)"},{n:"Alto",q:300,b:0.5,d:0.03,c:"var(--water)"}];
+ function q(s,t){return s.q/Math.pow(1+s.b*s.d*(t-1),1/s.b)}
+ var fan=document.getElementById("fan");
+ if(fan){
+  var L=36,R=420,T=10,B=165,T0=1,T1=24,Y1=300;
+  function x(t){return L+(t-T0)/(T1-T0)*(R-L)} function y(v){return B-v/Y1*(B-T)}
+  [0,100,200,300].forEach(function(v){fan.appendChild(el("line",{x1:L,x2:R,y1:y(v),y2:y(v),stroke:"var(--rule)","stroke-width":1}));fan.appendChild(el("text",{x:L-5,y:y(v)+3,"text-anchor":"end"},v))});
+  [1,6,12,18,24].forEach(function(t){fan.appendChild(el("text",{x:x(t),y:B+14,"text-anchor":"middle"},t))});
+  fan.appendChild(el("text",{x:R,y:B+26,"text-anchor":"end"},"month"));
+  var up="",lo="";for(var t=1;t<=24;t++){up+=(t==1?"M":"L")+x(t).toFixed(1)+","+y(q(sc[2],t)).toFixed(1)}
+  for(var t2=24;t2>=1;t2--){lo+="L"+x(t2).toFixed(1)+","+y(q(sc[0],t2)).toFixed(1)}
+  fan.appendChild(el("path",{d:up+lo+"Z",fill:"var(--accent-soft)",stroke:"none"}));
+  sc.forEach(function(s){var d="";for(var t=1;t<=24;t++)d+=(t==1?"M":"L")+x(t).toFixed(1)+","+y(q(s,t)).toFixed(1);
+   fan.appendChild(el("path",{d:d,fill:"none",stroke:s.c,"stroke-width":s.n=="Base"?2.4:1.4}));
+   fan.appendChild(el("text",{x:x(24)-2,y:y(q(s,24))-5,"text-anchor":"end",style:"fill:"+s.c},s.n))});
+  var cum=0;for(var m=1;m<=12;m++)cum+=q(sc[1],m)*30.4;
+  var g=document.getElementById("g12");if(g)g.textContent="~"+Math.round(cum/1000)+" Mstb";
+ }
+ var st=document.getElementById("strip");
+ if(st){
+  // Illustrative intervals; INT001 from the attached table, depths and properties invented.
+  var iv=[{id:"INT007",u:"A",top:5120,bot:5150,e:"abierto",kh:900,sw:0.71},{id:"INT001",u:"B",top:5210,bot:5236,e:"cerrado",kh:2340,sw:0.41},{id:"INT002",u:"B",top:5262,bot:5275,e:"parcial",kh:610,sw:0.52},{id:"INT005",u:"C",top:5330,bot:5352,e:"abierto",kh:1500,sw:0.63}];
+  var D0=5100,D1=5370,T=22,B=218;function yd(d){return T+(d-D0)/(D1-D0)*(B-T)}
+  var col={abierto:"var(--oil)",cerrado:"var(--muted)",parcial:"var(--warn)"};
+  st.appendChild(el("text",{x:0,y:8},"ft"));st.appendChild(el("text",{x:122,y:8},"state"));st.appendChild(el("text",{x:178,y:8},"kh"));st.appendChild(el("text",{x:250,y:8},"Sw act"));
+  [5100,5200,5300].forEach(function(d){st.appendChild(el("text",{x:0,y:yd(d)+3},d));st.appendChild(el("line",{x1:34,x2:320,y1:yd(d),y2:yd(d),stroke:"var(--rule)"}))});
+  st.appendChild(el("rect",{x:40,y:T,width:14,height:B-T,fill:"var(--panel-2)",stroke:"var(--rule)"}));
+  iv.forEach(function(r){var y0=yd(r.top),h=yd(r.bot)-y0,sel=r.id=="INT001";
+   st.appendChild(el("rect",{x:40,y:y0,width:14,height:h,fill:col[r.e]}));
+   st.appendChild(el("text",{x:60,y:y0+h/2+3,style:sel?"fill:var(--accent);font-weight:600":""},r.u+" "+r.id));
+   st.appendChild(el("text",{x:122,y:y0+h/2+3},r.e));
+   st.appendChild(el("rect",{x:178,y:y0+2,width:Math.max(2,r.kh/2500*60),height:Math.max(4,h-4),fill:"var(--accent)",opacity:0.75}));
+   st.appendChild(el("rect",{x:250,y:y0+2,width:r.sw*60,height:Math.max(4,h-4),fill:"var(--water)",opacity:0.75}));
+   if(sel)st.appendChild(el("rect",{x:36,y:y0-2,width:282,height:h+4,fill:"none",stroke:"var(--accent)","stroke-width":1.2,rx:3}))});
+  st.appendChild(el("text",{x:178,y:236},"0–2,500 md·ft"));st.appendChild(el("text",{x:262,y:236},"0–1"));
+ }
+})();
+</script>
