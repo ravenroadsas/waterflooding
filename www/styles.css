@@ -178,3 +178,5 @@ table.dataTable td { border-top: 1px solid #172238 !important; }
 .wf-record .wf-kpi-row.compact { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
 .wf-record .wf-kpi-row.compact .wf-kpi-value { font-size: .95rem; white-space: normal; overflow: visible; }
 .modal .wf-kpi-row.compact .wf-kpi-value { font-size: .95rem; white-space: normal; overflow: visible; }
+#wb_kpis .wf-kpi-value, #job_detail .wf-kpi-value { white-space: normal; overflow: visible; font-size: .95rem; }
+#wb_kpis .wf-kpi-row.compact { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

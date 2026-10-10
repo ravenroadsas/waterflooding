@@ -102,17 +102,17 @@ td .chip{white-space:normal;line-height:1.3}
  <div class="eyebrow">FloodPulse v3 · well opportunities · design for review</div>
  <h1>ADPERF potential workbench</h1>
  <p class="lead">From intervals found in the logs to a job that is approved, executed and tracked. The first screen is where the engineer compares what several algorithms propose with what the wellbore already has open, squeezed or isolated, picks the intervals, adds the isolation of the worst water offender, and sees the job's combined potential and uncertainty. The values are illustrative.</p>
- <div class="flow" aria-label="Flow and what the app does today">
-  <div class="st"><b>1 Identify</b><span>several algorithms scan the logs</span><span class="chip mi">missing</span></div>
-  <div class="st"><b>2 Compare</b><span>against open, squeezed, isolated</span><span class="chip pa">partial</span></div>
-  <div class="st"><b>3 Aggregate</b><span>potential and uncertainty</span><span class="chip av">available</span></div>
-  <div class="st"><b>4 Offenders</b><span>water offender ranking</span><span class="chip pa">partial</span></div>
-  <div class="st"><b>5 Compose job</b><span>3 ADPERF + 1 isolation (+ ALS)</span><span class="chip pa">partial</span></div>
-  <div class="st"><b>6 Portfolio</b><span>value, uncertainty, cost, risk, opportunity</span><span class="chip pa">partial</span></div>
-  <div class="st"><b>7 Approve</b><span>proposed to scheduled</span><span class="chip pa">partial</span></div>
-  <div class="st"><b>8 Track</b><span>actual vs frozen forecast</span><span class="chip av">available</span></div>
+ <div class="flow" aria-label="Flow and what the app does now">
+  <div class="st"><b>1 Identify</b><span>several algorithms scan the logs</span><span class="chip av">built</span></div>
+  <div class="st"><b>2 Compare</b><span>against open, squeezed, isolated</span><span class="chip av">built</span></div>
+  <div class="st"><b>3 Aggregate</b><span>potential and uncertainty</span><span class="chip av">built</span></div>
+  <div class="st"><b>4 Offenders</b><span>water offender ranking</span><span class="chip av">built (v1 rates)</span></div>
+  <div class="st"><b>5 Compose job</b><span>3 ADPERF + 1 isolation (+ ALS)</span><span class="chip av">built</span></div>
+  <div class="st"><b>6 Portfolio</b><span>value, uncertainty, cost, risk, opportunity</span><span class="chip pa">volumes until economics</span></div>
+  <div class="st"><b>7 Approve</b><span>engineer proposes, lead approves</span><span class="chip av">built</span></div>
+  <div class="st"><b>8 Track</b><span>actual vs frozen forecast</span><span class="chip av">built</span></div>
  </div>
- <p class="cap">Status of each step in the app today; section 5 explains each one.</p>
+ <p class="cap">Status after the build of October 2026; section 5 lists what each step uses and what is still open.</p>
 </header>
 
 <section id="ws">
@@ -187,35 +187,35 @@ td .chip{white-space:normal;line-height:1.3}
 </section>
 
 <section id="gap">
- <div class="eyebrow">5 · What exists today</div>
- <h2>Gap analysis against the current app</h2>
+ <div class="eyebrow">5 · What the app does now</div>
+ <h2>Built, and still open</h2>
  <div style="overflow-x:auto"><table class="gap">
   <thead><tr><th>Step</th><th>Status</th><th>In the app today</th><th>Needed</th></tr></thead>
   <tbody>
-  <tr><td>Several algorithms scan the logs</td><td><span class="chip mi">missing</span></td><td>INTERVALOS holds one set of intervals; another source can only arrive through Findings.</td><td><code>algorithm</code> column in INTERVALOS (or one table per algorithm); merge of overlapping intervals into candidates; agreement count as evidence.</td></tr>
-  <tr><td>Compare with open, squeezed, isolated</td><td><span class="chip pa">partial</span></td><td>estado_apertura per interval (abierto, cerrado, parcial). No squeezes, plugs or depths of the completion.</td><td>A <code>Completions</code> table: well, top, base, type (perforation, squeeze, plug, sleeve), date, status. Conflict check of each candidate against it.</td></tr>
-  <tr><td>Aggregate potential and uncertainty</td><td><span class="chip av">available</span></td><td>The job builder sums the Bajo / Base / Alto profiles of the picked intervals (intervals add up).</td><td>Option for independent intervals (root-sum-square), as in the composer above.</td></tr>
-  <tr><td>Water offender ranking</td><td><span class="chip pa">partial</span></td><td>Rule W2: an open interval with initial BSW at or above 97 % becomes a water shut-off opportunity.</td><td>The offender algorithm's output (well, interval, water share, method) as its own lens; its oil and water removed in the job forecast.</td></tr>
-  <tr><td>Compose a job (3 ADPERF + 1 isolation)</td><td><span class="chip pa">partial</span></td><td>The engineer ticks any opportunities on a well into one job; the forecast counts ADPERF profiles only.</td><td>Isolation effect in the job forecast; lift check; an automatic first proposal (best intervals + worst offender) the engineer edits.</td></tr>
-  <tr><td>Stimulate or re-perforate</td><td><span class="chip mi">missing</span></td><td>Only rule W3: the well's rate below its own decline.</td><td>Theoretical potential per open interval; gap = theoretical − current → STIM or REPERF opportunity with that gain.</td></tr>
-  <tr><td>Portfolio: value, uncertainty, cost, risk</td><td><span class="chip pa">partial</span></td><td>Score per opportunity from evidence, gain, EUR and Bajo-Alto spread; economics hook (WF_ECON_FILE).</td><td>Ranking per job; cost per job type; P(success) per action and field from outcomes; economics plugged in.</td></tr>
-  <tr><td>Opportunity criterion (lift run life)</td><td><span class="chip mi">missing</span></td><td>WellStatus has lift type and fluid level only.</td><td>Lift install date, expected run life and failures; well down; rig nearby. Each trigger flags the job and adds the bonus.</td></tr>
-  <tr><td>Approval and execution</td><td><span class="chip pa">partial</span></td><td>Opportunity statuses with history; jobs are PLANNED or EXECUTED.</td><td>Job status flow with approver, dates and comments.</td></tr>
-  <tr><td>Track result against forecast</td><td><span class="chip av">available</span></td><td>Forecast frozen at validation or logging; job verdict above Alto, within range or below Bajo against the sum of the job's forecasts.</td><td>Calibration of P(success) and of the profiles from the verdicts.</td></tr>
+  <tr><td>Several algorithms scan the logs</td><td><span class="chip av">built</span></td><td>Table <code>Log_Intervals</code> (algorithm, well, top, base, [unit, score]). Overlapping intervals merge into candidates; agreement (n of m algorithms) is evidence U; candidates without a potential are listed as screening.</td><td>Potential for the algorithms' candidates comes from the single-well analysis (INTERVALOS), matched by depth.</td></tr>
+  <tr><td>Compare with open, squeezed, isolated</td><td><span class="chip av">built</span></td><td>Table <code>Completions</code> (perforation, squeeze, plug, sleeve by depth and date). Candidates on a squeeze or below a plug are blocked; a closed interval over an open perforation is treated as open.</td><td>-</td></tr>
+  <tr><td>Aggregate potential and uncertainty</td><td><span class="chip av">built</span></td><td>Job potential = sum of its items' Bajo / Base / Alto (intervals add up).</td><td>Independent (root-sum-square) option still to add.</td></tr>
+  <tr><td>Water offender ranking</td><td><span class="chip av">built (v1)</span></td><td>Table <code>Interval_Rates</code> (oil and water per open interval). Share of the well's water ≥ 40 % and water cut ≥ 90 % → isolation opportunity; its oil and water come out of the job forecast.</td><td>Version 2 (synthetic PLT) fits the same table.</td></tr>
+  <tr><td>Compose a job (3 ADPERF + 1 isolation)</td><td><span class="chip av">built</span></td><td>ADPERF workbench: first proposal = the three best free candidates + the worst offender; the engineer edits it in the track or the tables; lift capacity check; lift change checked when the run life triggers.</td><td>-</td></tr>
+  <tr><td>Stimulate or re-perforate</td><td><span class="chip av">built</span></td><td>Table <code>Interval_Potential</code> (theoretical rate per open interval); gap ≥ 20 bopd and ≥ 30 % → REPERF opportunity with the gap as gain.</td><td>-</td></tr>
+  <tr><td>Portfolio: value, uncertainty, cost, risk</td><td><span class="chip pa">volumes</span></td><td>Jobs ranked on risked oil per cost, uncertainty and the opportunity bonus. Cost from <code>Job_Costs</code> (job type × depth band). P(success) per job type from Settings, replaced by outcomes once five exist.</td><td>The private economic function (value instead of risked oil).</td></tr>
+  <tr><td>Opportunity criterion (lift run life)</td><td><span class="chip av">built</span></td><td>Table <code>Lift_Status</code> exported from CDF (install date, expected run life, capacity, failures): run life ≥ 85 %, two failures in 12 months, or well down → trigger and bonus.</td><td>A direct CDF connection instead of the export.</td></tr>
+  <tr><td>Approval and execution</td><td><span class="chip av">built</span></td><td>Jobs page: proposed → approved (lead) → executed → evaluated, or rejected / cancelled, with who and when. Leads are the users in <code>WF_LEADS</code>.</td><td>Sign-in from the hosting platform for the user name.</td></tr>
+  <tr><td>Track result against forecast</td><td><span class="chip av">built</span></td><td>Forecast frozen at approval; executed job's incremental oil over the pre-job decline vs Bajo / Base / Alto; outcome recorded on every item.</td><td>-</td></tr>
   </tbody></table></div>
 </section>
 
 <section id="q">
- <div class="eyebrow">6 · To confirm before building</div>
- <h2>Questions</h2>
+ <div class="eyebrow">6 · Decisions</div>
+ <h2>Answers that shaped the build</h2>
  <ol class="q">
-  <li><div><b>Algorithm output.</b> Will each algorithm deliver INTERVALOS-like rows with an algorithm name, and do all of them come with Bajo / Base / Alto profiles, or only the final merged candidates?</div></li>
-  <li><div><b>Completion history.</b> Is there a table of perforations, squeezes and plugs by depth and date per well?</div></li>
-  <li><div><b>Water offender algorithm.</b> What does it return: water share per open interval, a rate, a rank? Does it estimate the oil lost when the interval is isolated?</div></li>
-  <li><div><b>Theoretical potential.</b> For stimulation or re-perforation, is the theoretical rate per open interval or per well?</div></li>
-  <li><div><b>Cost and risk.</b> Cost by job type (and by number of intervals)? Risk as P(success) from history, or a qualitative rating?</div></li>
-  <li><div><b>Lift data.</b> Install date, expected run life and failure history per well: available, and from which system?</div></li>
-  <li><div><b>Approval.</b> Which steps and roles (e.g. engineer proposes, lead approves, operations schedules)?</div></li>
+  <li><div><b>Algorithms</b> return intervals only; potential comes from the single-well analysis.</div></li>
+  <li><div><b>Completion history</b> by depth and date is available (table Completions).</div></li>
+  <li><div><b>Water offenders</b>: version 1 is oil and water per interval; version 2 a synthetic PLT with the same columns.</div></li>
+  <li><div><b>Theoretical potential</b> per interval; potentials add up, and every job has its own potential.</div></li>
+  <li><div><b>Costs</b>: standard cost lookup by well depth and job type.</div></li>
+  <li><div><b>Lift data</b> from the CDF system (export table for now).</div></li>
+  <li><div><b>Approval</b>: engineers propose, a lead approves.</div></li>
  </ol>
 </section>
 </div>

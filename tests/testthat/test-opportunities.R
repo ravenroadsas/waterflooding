@@ -132,3 +132,60 @@ test_that("a job executes only the opportunities picked; the rest stay identifie
   expect_equal(b1$qf, (210 + 290) + (140 + 160))
   expect_error(log_job(con, op, c("ADPERF|SAT-01|B|INT001", "ADPERF|PRD-07|B|INT001"), as.Date("2026-08-01")), "one well")
 })
+
+test_that("log algorithms merge into candidates checked against the completion history", {
+  ds <- demo$ds
+  c <- log_candidates(ds)[well == "SAT-01"]
+  expect_equal(c[target == "INT003", n], 3)                       # all three algorithms agree
+  expect_equal(c[cand_id == "L4905", conflict], "squeezed")        # algorithm C on the 2019 squeeze
+  expect_match(c[cand_id == "L5015", conflict], "below plug")      # algorithm A below the plug at 5,010 ft
+  st <- completion_state(ds$completions)
+  expect_false(any(st$open$well == "SAT-01" & st$open$top_ft == 4905))   # perforated 2012, squeezed 2019
+  s <- demo$op$summary
+  expect_false(any(grepl("L4905|L5015", s$key)))                  # blocked candidates are not offered
+  expect_true("ADPERF|PRD-07|-|L5300" %in% s$key)                  # found by two algorithms, no potential yet
+  expect_true(is.na(s[key == "ADPERF|PRD-07|-|L5300", gain]))
+  expect_match(s[key == "ADPERF|SAT-01|A|INT003", families], "U")
+})
+
+test_that("water offenders and potential gaps become isolation and re-perforation opportunities", {
+  of <- water_offenders(demo$ds)[well == "SAT-01"]
+  expect_equal(of[rank == 1, target], "A3")
+  expect_equal(of[rank == 1, share], 230 / 360)
+  expect_true("WSO|SAT-01|A|A3" %in% demo$op$summary$key)
+  pg <- potential_gaps(demo$ds)
+  expect_equal(pg[target == "INT002", gap], 75)
+  r <- demo$op$summary[key == "REPERF|SAT-01|C|INT002"]
+  expect_equal(r$gain, 75); expect_equal(r$gain_src, "POTENTIAL")
+})
+
+test_that("a job combines intervals, isolation, cost lookup and the lift trigger", {
+  st <- default_settings
+  k <- c("ADPERF|SAT-01|B|INT001", "ADPERF|SAT-01|A|INT003", "ADPERF|SAT-01|C|INT005", "WSO|SAT-01|A|A3")
+  p <- job_proposal(demo$op, k, demo$res, max(demo$res$months), st, als_change = TRUE)
+  expect_equal(unname(p$qo["Base"]), 210 + 140 + 90 - 4)          # intervals add up, the isolation removes its oil
+  expect_equal(p$qw, 290 + 160 + 310 - 230)
+  expect_equal(p$cost_usd, 190000 + 3 * 48000 + 70000 + 200000)   # rig + items + lift change, depth band > 5,000 ft
+  expect_match(paste(p$triggers, collapse = " "), "ESP run life")
+  expect_false(p$lift$over)
+  j <- score_jobs(data.table::data.table(risked_np12 = c(100, 100), cost_usd = c(1, 1), unc = c(0, 0), triggers = c("", "ESP run life 96 %")), st)
+  expect_gt(j$score[2], j$score[1])                                # opportunity bonus
+})
+
+test_that("engineers propose, a lead approves, and only allowed transitions happen", {
+  con <- store_open(tempfile(fileext = ".sqlite")); on.exit(DBI::dbDisconnect(con))
+  old <- Sys.getenv("WF_LEADS"); Sys.setenv(WF_LEADS = "lead1"); on.exit(Sys.setenv(WF_LEADS = old), add = TRUE)
+  k <- c("ADPERF|SAT-01|B|INT001", "WSO|SAT-01|A|A3")
+  id <- job_propose(con, demo$op, k, demo$res, max(demo$res$months), default_settings, "eng1")
+  expect_equal(store_job(con, id)$status, "proposed")
+  expect_error(job_set_status(con, id, "approved", "eng1", "", demo$op, demo$res), "lead")
+  expect_error(job_set_status(con, id, "executed", "lead1", "", demo$op, demo$res, as.Date("2026-08-01")), "cannot move")
+  job_set_status(con, id, "approved", "lead1", "go", demo$op, demo$res)
+  expect_equal(store_job(con, id)$approved_by, "lead1")
+  expect_false(is.null(store_frozen(con, paste0("JOB:", id))))
+  job_set_status(con, id, "executed", "eng1", "", demo$op, demo$res, as.Date("2026-08-01"))
+  s <- apply_states(demo$op$summary, store_states(con))[well == "SAT-01"]
+  expect_setequal(s[status == "executed", key], k)
+  expect_true(all(s[!key %in% k, as.character(status)] == s[!key %in% k, auto_status]))
+  expect_equal(store_job_history(con, id)$to_status, c("proposed", "approved", "executed"))
+})

@@ -41,6 +41,7 @@ ui <- page_navbar(
   nav_panel(tags$span(tags$i(class = "wf-n", "1"), "Maturity"), value = "maturity", maturity_ui()),
   nav_panel(tags$span(tags$i(class = "wf-n", "2"), "Process velocity"), value = "velocity", velocity_ui()),
   nav_panel(tags$span(tags$i(class = "wf-n", "3"), "Opportunities"), value = "opportunities", opportunities_ui()),
+  nav_panel(tags$span(tags$i(class = "wf-n", "4"), "Jobs"), value = "jobs", jobs_ui()),
   nav_spacer(),
   nav_menu("Data & reference", icon = icon("database"), align = "right",
     nav_panel("Data", value = "data", data_ui()),
@@ -117,6 +118,7 @@ server <- function(input, output, session) {
     o <- tryCatch(generate_opportunities(res(), series(), asof(), settings()),
                   error = function(e) { showNotification(paste("Opportunity rules:", conditionMessage(e)), type = "error"); list(summary = data.table(), records = list()) })
     if (isTRUE(store_migrate_keys(con, o$summary) > 0)) showNotification("Decisions stored under v2 pattern keys moved to their well targets")
+    if (identical(rv$ds$name, "demo") && !nrow(store_jobs(con))) isolate(seed_demo_jobs(con, o, res(), asof(), settings()))
     o$summary <- apply_states(o$summary, store_states(con))
     o
   })
@@ -149,6 +151,7 @@ server <- function(input, output, session) {
   ctx <- list(ds = reactive(rv$ds), res = res, asof = asof, series = series, series_all = series_all, scope_series = scope_series,
               snap = snap, ml = ml, units_snap = units_snap, opps = opps, settings = settings, sands = reactive(input$sands),
               color_by = reactive(input$color_by %||% "util"), focus = focus, sel_opp = sel_opp, open_p360 = open_p360, open_opp = open_opp, open_w360 = open_w360, job_req = job_req,
+              user = reactive({ u <- session$user %||% input$job_user %||% ""; if (nzchar(u)) u else Sys.getenv("USER", "engineer") }),
               con = con, store_tick = store_tick, proto_tick = proto_tick)
 
   output$asof_label <- renderUI(div(class = "wf-asof-value", fmt_month(asof())))
@@ -172,6 +175,8 @@ server <- function(input, output, session) {
   opportunities_server(input, output, session, ctx)
   p360_server(input, output, session, ctx, p360_pat)
   w360_server(input, output, session, ctx, w360_well)
+  workbench_server(input, output, session, ctx)
+  jobs_server(input, output, session, ctx)
   data_server(input, output, session, ctx)
 }
 

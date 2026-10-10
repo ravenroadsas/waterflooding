@@ -89,7 +89,14 @@ settings_ui <- function() {
       num("int_npooip_max", "New interval: Np/OOIP at or below", st$int_npooip_max, 0.01), num("int_sw_max", "New interval: Sw actual at or below", st$int_sw_max, 0.01),
       num("int_bsw_max", "New interval: initial BSW below (%)", st$int_bsw_max, 1), num("wso_bsw", "Water shut-off: interval BSW at or above (%)", st$wso_bsw, 1),
       num("decline_drop", "Stimulation / lift: rate below own decline by", st$decline_drop, 0.05), num("shutin_months", "Reactivation: months shut in", st$shutin_months, 1),
-      num("min_rate", "Well rules: minimum oil rate (bopd)", st$min_rate, 1)))))
+      num("min_rate", "Well rules: minimum oil rate (bopd)", st$min_rate, 1),
+      num("offender_share", "Isolation: share of the well's water at least", st$offender_share, 0.05), num("offender_wc", "Isolation: interval water cut at least", st$offender_wc, 0.01),
+      num("reperf_gap_min", "Re-perforate: gap to potential at least (bopd)", st$reperf_gap_min, 5), num("reperf_gap_frac", "Re-perforate: gap as fraction of potential", st$reperf_gap_frac, 0.05))),
+      bslib::card_body(htmltools::h6(class = "wf-h6", "Jobs and portfolio"), htmltools::div(class = "wf-settings-grid",
+      num("runlife_trigger", "Opportunity trigger: lift run life used", st$runlife_trigger, 0.05), num("opportunity_bonus", "Score bonus of a triggered job", st$opportunity_bonus, 0.05),
+      num("ps_adperf", "P(success) ADPERF", st$ps_adperf, 0.05), num("ps_isolation", "P(success) isolation", st$ps_isolation, 0.05),
+      num("ps_stim", "P(success) stimulation / re-perforation", st$ps_stim, 0.05), num("ps_other", "P(success) other jobs", st$ps_other, 0.05),
+      num("noprof_lo", "Without profile: Bajo as fraction of Base", st$noprof_lo, 0.05), num("noprof_hi", "Without profile: Alto as fraction of Base", st$noprof_hi, 0.05)))))
 }
 
 method_ui <- function() {

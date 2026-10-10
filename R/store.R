@@ -21,6 +21,11 @@ store_open <- function(path = store_path()) {
   cols <- DBI::dbListFields(con, "interventions")
   if (!"interval_id" %in% cols) DBI::dbExecute(con, "ALTER TABLE interventions ADD COLUMN interval_id TEXT")
   if (!"job" %in% cols) DBI::dbExecute(con, "ALTER TABLE interventions ADD COLUMN job TEXT")
+  # jobs: proposed by engineers, approved by a lead, executed, evaluated
+  DBI::dbExecute(con, paste("CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, well TEXT, name TEXT, status TEXT, triggers TEXT,",
+                            "als_change INTEGER, cost_usd REAL, created_by TEXT, created TEXT, approved_by TEXT, approved TEXT, exec_date TEXT, notes TEXT, updated TEXT)"))
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS job_items (job_id INTEGER, opp_key TEXT, action TEXT, sand TEXT, interval_id TEXT, qo REAL, qw REAL, np12 REAL, ps REAL)")
+  DBI::dbExecute(con, "CREATE TABLE IF NOT EXISTS job_history (job_id INTEGER, ts TEXT, from_status TEXT, to_status TEXT, user TEXT, comment TEXT)")
   con
 }
 
@@ -96,4 +101,26 @@ store_save_ai <- function(con, key, model, text) DBI::dbExecute(con, "INSERT INT
 store_ai <- function(con, key) {
   x <- DBI::dbGetQuery(con, "SELECT * FROM ai_drafts WHERE key = ? ORDER BY ts DESC LIMIT 1", params = list(key))
   if (nrow(x)) x else NULL
+}
+
+# ---- jobs ----
+store_job_create <- function(con, well, name, items, cost_usd, triggers, als_change, user, notes = "") {
+  DBI::dbExecute(con, "INSERT INTO jobs (well, name, status, triggers, als_change, cost_usd, created_by, created, notes, updated) VALUES (?, ?, 'proposed', ?, ?, ?, ?, ?, ?, ?)",
+                 params = list(well, name, triggers, as.integer(isTRUE(als_change)), cost_usd, user, now_txt(), notes, now_txt()))
+  id <- DBI::dbGetQuery(con, "SELECT last_insert_rowid() id")$id
+  if (nrow(items)) DBI::dbWriteTable(con, "job_items", data.frame(job_id = id, opp_key = items$key, action = items$action, sand = items$sand,
+                                                                  interval_id = items$interval, qo = items$qo1, qw = items$qw1, np12 = items$np12, ps = items$ps), append = TRUE)
+  DBI::dbExecute(con, "INSERT INTO job_history VALUES (?, ?, NULL, 'proposed', ?, ?)", params = list(id, now_txt(), user, notes))
+  id
+}
+store_jobs <- function(con) data.table::as.data.table(DBI::dbGetQuery(con, "SELECT * FROM jobs ORDER BY id DESC"))
+store_job <- function(con, id) { x <- DBI::dbGetQuery(con, "SELECT * FROM jobs WHERE id = ?", params = list(id)); if (nrow(x)) x else NULL }
+store_job_items <- function(con, id) data.table::as.data.table(DBI::dbGetQuery(con, "SELECT * FROM job_items WHERE job_id = ?", params = list(id)))
+store_job_history <- function(con, id) data.table::as.data.table(DBI::dbGetQuery(con, "SELECT * FROM job_history WHERE job_id = ? ORDER BY ts", params = list(id)))
+store_job_update <- function(con, id, to, user, comment = "", date = NULL) {
+  old <- store_job(con, id)
+  DBI::dbExecute(con, "UPDATE jobs SET status = ?, updated = ? WHERE id = ?", params = list(to, now_txt(), id))
+  if (to == "approved") DBI::dbExecute(con, "UPDATE jobs SET approved_by = ?, approved = ? WHERE id = ?", params = list(user, now_txt(), id))
+  if (to == "executed" && !is.null(date)) DBI::dbExecute(con, "UPDATE jobs SET exec_date = ? WHERE id = ?", params = list(format(as.Date(date)), id))
+  DBI::dbExecute(con, "INSERT INTO job_history VALUES (?, ?, ?, ?, ?, ?)", params = list(id, now_txt(), old$status, to, user, comment))
 }

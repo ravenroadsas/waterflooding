@@ -1,0 +1,17 @@
+Algorithm,Well,Top_ft,Base_ft,Score
+A cutoffs,SAT-01,4705,4725,0.65
+A cutoffs,SAT-01,4820,4846,0.8
+A cutoffs,SAT-01,4925,4946,0.8
+A cutoffs,SAT-01,5015,5028,0.75
+B log classifier,SAT-01,4707,4726,0.75
+B log classifier,SAT-01,4745,4758,0.9
+B log classifier,SAT-01,4822,4848,0.9
+B log classifier,SAT-01,4926,4944,0.85
+C saturation model,SAT-01,4706,4727,0.7
+C saturation model,SAT-01,4819,4845,0.75
+C saturation model,SAT-01,4905,4912,0.85
+C saturation model,SAT-01,4990,5001,0.9
+A cutoffs,PRD-07,5210,5238,0.7
+B log classifier,PRD-07,5212,5240,0.8
+B log classifier,PRD-07,5300,5312,0.65
+C saturation model,PRD-07,5300,5311,0.65

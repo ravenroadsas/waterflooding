@@ -1,0 +1,4 @@
+Well,Interval_ID,Top_ft,Base_ft,Unit,Date,Qo,Qw,Method
+SAT-01,A3,4770,4790,A,2026-07-01,4,230,rates v1
+SAT-01,INT002,4880,4898,C,2026-07-01,30,100,rates v1
+SAT-01,INT005,4925,4932,C,2026-07-01,12,30,rates v1

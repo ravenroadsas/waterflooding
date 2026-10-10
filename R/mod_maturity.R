@@ -3,7 +3,7 @@
 maturity_ui <- function() {
   htmltools::tagList(
     htmltools::div(class = "wf-section-intro",
-      htmltools::div(class = "wf-step", "Step 1 of 3"), htmltools::h2("Pattern maturity"),
+      htmltools::div(class = "wf-step", "Step 1 of 4"), htmltools::h2("Pattern maturity"),
       htmltools::p("Where each pattern and unit sits in its flood life, and whether it recovers what the prototype expects at that DWI.",
                    "Start with Sec RF vs DWI, separate inefficient water use, excess water and low oil response, then drill by unit and check spatially.")),
     shiny::uiOutput("mat_kpis"),

@@ -3,7 +3,7 @@
 velocity_ui <- function() {
   htmltools::tagList(
     htmltools::div(class = "wf-section-intro",
-      htmltools::div(class = "wf-step", "Step 2 of 3"), htmltools::h2("Process velocity"),
+      htmltools::div(class = "wf-step", "Step 2 of 4"), htmltools::h2("Process velocity"),
       htmltools::p("Is water going in and fluid coming out at the right speed for each pattern's maturity, and is the pattern balanced?",
                    "Speed against efficiency first, then the change over a year, then balance, then throughput on maturity by unit.")),
     shiny::uiOutput("vel_kpis"),

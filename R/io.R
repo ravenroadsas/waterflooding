@@ -244,6 +244,21 @@ fill_defaults <- function(ds) {
     ds$findings <- fd
   }
   if (!is.null(ds$baseline)) ds$baseline[is.na(method) | method == "", method := "waterflood"]
+  if (!is.null(ds$log_intervals)) ds$log_intervals[is.na(sand) | sand == "", sand := NA_character_]
+  if (!is.null(ds$completions)) {
+    cp <- ds$completions
+    ty <- toupper(trimws(cp$type))
+    tmap <- c(PERFORATION = "PERFORATION", PERF = "PERFORATION", PUNZADO = "PERFORATION", CANONEO = "PERFORATION", ADPERF = "PERFORATION", REPERF = "PERFORATION",
+              SQUEEZE = "SQUEEZE", SQZ = "SQUEEZE", CEMENTACION = "SQUEEZE", PLUG = "PLUG", CIBP = "PLUG", TAPON = "PLUG", BRIDGE_PLUG = "PLUG",
+              SLEEVE = "SLEEVE", CAMISA = "SLEEVE")
+    cp[, type := ifelse(ty %in% names(tmap), tmap[ty], ty)]
+    cp[is.na(base_ft), base_ft := top_ft]
+    cp[, status := toupper(data.table::fcoalesce(status, ""))]
+    cp[status == "", status := ifelse(type %in% c("PERFORATION", "SLEEVE"), "OPEN", "ACTIVE")]
+    ds$completions <- cp
+  }
+  if (!is.null(ds$job_costs)) ds$job_costs[, job_type := toupper(trimws(job_type))]
+
   if (!is.null(ds$prototypes)) ds$prototypes[is.na(version) | version == "", version := "v1"]
   if (!is.null(ds$prototype_assign)) ds$prototype_assign[is.na(version) | version == "", version := "v1"]
   if (!is.null(ds$interventions)) {
@@ -359,6 +374,24 @@ validate_well_analysis <- function(ds, tol = 0.01) {
     unk <- setdiff(unique(pf$scenario), c("Bajo", "Base", "Alto"))
     if (length(unk)) add("profiles", "warning", sprintf("Unknown scenarios: %s", paste(unk, collapse = ", ")))
   }
+  for (k in c("log_intervals", "completions", "interval_rates", "interval_potential")) {
+    x <- ds[[k]]; if (is.null(x)) next
+    bad <- x[is.finite(top_ft) & is.finite(base_ft) & top_ft > base_ft, .N]
+    if (bad) add(k, "warning", sprintf("%d rows with top below base", bad))
+  }
+  if (!is.null(ds$log_intervals)) add("log_intervals", "info", sprintf("%d intervals from %d algorithms on %d wells", nrow(ds$log_intervals),
+                                                                       data.table::uniqueN(ds$log_intervals$algorithm), data.table::uniqueN(ds$log_intervals$well)))
+  if (!is.null(ds$completions)) {
+    odd <- setdiff(unique(ds$completions$type), c("PERFORATION", "SQUEEZE", "PLUG", "SLEEVE"))
+    if (length(odd)) add("completions", "warning", sprintf("Unknown completion types (ignored): %s", paste(odd, collapse = ", ")))
+  }
+  if (!is.null(ds$intervals) && !is.null(ds$completions)) {
+    st <- completion_state(ds$completions)
+    iv <- ds$intervals[estado == "cerrado" & is.finite(top_ft) & is.finite(base_ft)]
+    cf <- iv[, .(c = interval_conflict(st, well, top_ft, base_ft)), by = .(well, interval_id)][c == "already open"]
+    if (nrow(cf)) add("intervals", "warning", sprintf("%d intervals marked closed overlap open perforations in Completions (e.g. %s %s): treated as open", nrow(cf), cf$well[1], cf$interval_id[1]))
+  }
+  if (is.null(ds$job_costs)) add("job_costs", "info", "No cost lookup: default standard costs used (Settings)")
   if (!is.null(ds$findings)) {
     nf <- ds$findings[is.na(family), .N]
     if (nf) add("findings", "info", sprintf("%d finding rows without an evidence family (M, V, U, S, O): kept as context only", nf))

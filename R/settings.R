@@ -25,6 +25,14 @@ default_settings <- list(
   decline_drop = 0.25,      # rate this far below the well's own decline -> stimulation / lift
   shutin_months = 3,        # months without production -> reactivation candidate
   min_rate = 5,             # bopd below which well rules are not raised
+  offender_share = 0.40,    # open interval with at least this share of the well's water ...
+  offender_wc = 0.90,       # ... and this water cut -> isolation candidate
+  reperf_gap_min = 20,      # bopd below theoretical potential -> stimulate / re-perforate
+  reperf_gap_frac = 0.30,   # ... and at least this fraction of the potential
+  runlife_trigger = 0.85,   # lift run life used: job triggered by opportunity
+  opportunity_bonus = 0.25, # score bonus of a job triggered by an opportunity
+  ps_adperf = 0.75, ps_isolation = 0.85, ps_stim = 0.60, ps_other = 0.80,  # P(success) until outcomes calibrate it
+  noprof_lo = 0.5, noprof_hi = 1.5, # Bajo / Alto as a fraction of Base for items without profiles
   w_evidence = 0.40, w_gain = 0.40, w_stake = 0.20,  # priority score weights
   w_unc = 0.10,             # penalty for the Bajo-Alto spread relative to Base
   lci = c("target_tp", "iwr_low", "iwr_high")

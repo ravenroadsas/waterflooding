@@ -253,6 +253,88 @@ wf_schema <- list(
       col_spec("date", "date", FALSE, c("fecha", "as_of"))
     )
   ),
+  # ---- wellbore: log algorithms, completions, interval rates and potential, costs, lift ----
+  log_intervals = list(
+    title = "Log intervals: candidates from the log algorithms", role = "optional", grain = "Algorithm x well x interval",
+    doc = "Each algorithm returns a list of intervals with potential (no rates). Overlapping intervals of several algorithms merge into one candidate.",
+    sheet_aliases = c("log_intervals", "intervalos_registros", "algorithm_intervals", "log_candidates", "candidatos"),
+    cols = list(
+      col_spec("algorithm", "chr", aliases = c("algoritmo", "method", "source")),
+      col_spec("well", "chr", aliases = c("pozo")),
+      col_spec("top_ft", aliases = c("top", "tope"), unit = "ft"),
+      col_spec("base_ft", aliases = c("base", "bottom"), unit = "ft"),
+      col_spec("sand", "chr", FALSE, c("unit", "unidad", "arena")),
+      col_spec("score", required = FALSE, aliases = c("confidence", "probabilidad", "quality"))
+    )
+  ),
+  completions = list(
+    title = "Completions: perforations, squeezes, plugs by depth", role = "optional", grain = "Well x interval x date",
+    doc = "Wellbore history. Type: PERFORATION, SQUEEZE, PLUG (isolates everything below its top), SLEEVE. Status OPEN / CLOSED; the latest row per depth wins.",
+    sheet_aliases = c("completions", "completaciones", "wellbore", "perforations", "punzados"),
+    cols = list(
+      col_spec("well", "chr", aliases = c("pozo")),
+      col_spec("top_ft", aliases = c("top", "tope"), unit = "ft"),
+      col_spec("base_ft", required = FALSE, aliases = c("base", "bottom"), unit = "ft"),
+      col_spec("type", "chr", aliases = c("tipo", "completion_type", "event")),
+      col_spec("date", "date", FALSE, c("fecha")),
+      col_spec("status", "chr", FALSE, c("estado")),
+      col_spec("sand", "chr", FALSE, c("unit", "unidad", "arena"))
+    )
+  ),
+  interval_rates = list(
+    title = "Interval rates: oil and water per open interval", role = "optional", grain = "Well x interval x date",
+    doc = "Water offender analysis. Version 1: oil and water rate per open interval; later a synthetic PLT with the same columns.",
+    sheet_aliases = c("interval_rates", "caudales_intervalo", "offenders", "water_offenders", "plt", "synthetic_plt"),
+    cols = list(
+      col_spec("well", "chr", aliases = c("pozo")),
+      col_spec("interval_id", "chr", FALSE, c("intervalo_id", "intervalo")),
+      col_spec("top_ft", aliases = c("top", "tope"), unit = "ft"),
+      col_spec("base_ft", aliases = c("base", "bottom"), unit = "ft"),
+      col_spec("sand", "chr", FALSE, c("unit", "unidad", "arena")),
+      col_spec("date", "date", FALSE, c("fecha")),
+      col_spec("qo", aliases = c("qo_bopd", "oil_rate", "bopd"), unit = "bopd"),
+      col_spec("qw", aliases = c("qw_bwpd", "water_rate", "bwpd"), unit = "bwpd"),
+      col_spec("method", "chr", FALSE, c("metodo", "source"))
+    )
+  ),
+  interval_potential = list(
+    title = "Interval potential: theoretical rate of open intervals", role = "optional", grain = "Well x interval",
+    doc = "Theoretical potential per interval; potentials add up. Gap to the current interval rate = stimulation / re-perforation opportunity.",
+    sheet_aliases = c("interval_potential", "potencial_intervalo", "theoretical_potential", "potencial"),
+    cols = list(
+      col_spec("well", "chr", aliases = c("pozo")),
+      col_spec("interval_id", "chr", FALSE, c("intervalo_id", "intervalo")),
+      col_spec("top_ft", aliases = c("top", "tope"), unit = "ft"),
+      col_spec("base_ft", aliases = c("base", "bottom"), unit = "ft"),
+      col_spec("sand", "chr", FALSE, c("unit", "unidad", "arena")),
+      col_spec("qo_theo", aliases = c("qo_teorico", "qo_potential", "qo_pot"), unit = "bopd"),
+      col_spec("qw_theo", required = FALSE, aliases = c("qw_teorico", "qw_potential"), unit = "bwpd")
+    )
+  ),
+  job_costs = list(
+    title = "Job costs: standard cost by job type and well depth", role = "reference", grain = "Job type x depth band",
+    doc = "Lookup of standard costs (USD). RIG = cost of the rig visit; ADPERF, ISOLATION, STIM, REPERF, ALS_CHANGE ... per item.",
+    sheet_aliases = c("job_costs", "costos", "standard_costs", "cost_lookup"),
+    cols = list(
+      col_spec("job_type", "chr", aliases = c("type", "tipo", "item")),
+      col_spec("depth_min_ft", required = FALSE, aliases = c("depth_from", "prof_min"), unit = "ft"),
+      col_spec("depth_max_ft", required = FALSE, aliases = c("depth_to", "prof_max"), unit = "ft"),
+      col_spec("cost_usd", aliases = c("cost", "costo", "usd"), unit = "USD")
+    )
+  ),
+  lift_status = list(
+    title = "Lift status (CDF export)", role = "optional", grain = "Well",
+    doc = "Artificial lift per well from the CDF system: install date, expected run life, capacity, failures. Drives the opportunity trigger and the lift check.",
+    sheet_aliases = c("lift_status", "als", "als_status", "cdf_lift", "levantamiento"),
+    cols = list(
+      col_spec("well", "chr", aliases = c("pozo")),
+      col_spec("lift_type", "chr", FALSE, c("als_type", "tipo")),
+      col_spec("install_date", "date", aliases = c("installed", "fecha_instalacion")),
+      col_spec("expected_runlife_days", required = FALSE, aliases = c("runlife", "expected_runlife", "vida_util_dias"), unit = "days"),
+      col_spec("capacity_bfpd", required = FALSE, aliases = c("capacity", "capacidad"), unit = "bfpd"),
+      col_spec("failures_12m", required = FALSE, aliases = c("failures", "fallas_12m"))
+    )
+  ),
   # ---- derived tables: optional, reconciliation only ----
   patterns = list(
     title = "Patterns (derived)", role = "derived", grain = "Pattern x month", doc = "Reconciliation only.",

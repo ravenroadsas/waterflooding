@@ -14,17 +14,17 @@
 opp_types <- c(A = "Injection control / isolation", B = "Injector stimulation", C = "More extraction / lift",
                D = "Support for new perforations", E = "Conformance / channeling", F = "Rate change")
 opp_colors <- c(A = "#fbbf24", B = "#60a5fa", C = "#a78bfa", D = "#e2e8f0", E = "#f87171", F = "#2dd4bf")
-well_rules <- c(W1 = "New interval (additional perforations)", W2 = "Water shut-off in an open interval",
+well_rules <- c(W1 = "New interval (additional perforations)", W2 = "Water shut-off in an open interval", W5 = "Open interval below its theoretical potential",
                 W3 = "Rate below the well's own decline", W4 = "Shut-in well with remaining potential")
 
 # Action catalog: what is done in the well. Unknown actions from other analyses are kept as given.
 actions <- data.table::data.table(
-  action = c("ADPERF", "WSO", "STIM_PROD", "LIFT", "REACTIVATE", "ISOLATE", "STIM_INJ", "CONFORMANCE", "RATE", "SUPPORT_INJ"),
-  label = c("Additional perforations", "Water shut-off", "Producer stimulation", "Lift / extraction", "Reactivate well",
+  action = c("ADPERF", "WSO", "STIM_PROD", "LIFT", "REACTIVATE", "ISOLATE", "STIM_INJ", "CONFORMANCE", "RATE", "SUPPORT_INJ", "REPERF"),
+  label = c("Additional perforations", "Water shut-off (isolation)", "Producer stimulation", "Lift / extraction", "Reactivate well",
             "Isolate / restrict unit", "Injector stimulation", "Conformance / profile modification", "Injection rate change",
-            "Injection support for new perforations"),
-  job = c("ADPERF", "ISOLATION", "STIM", "LIFT", "REACTIVATION", "ISOLATION", "STIM", "CONFORMANCE", "RATE", "RATE"),
-  color = c("#22d3ee", "#60a5fa", "#a78bfa", "#c084fc", "#94a3b8", "#fbbf24", "#3b82f6", "#f87171", "#2dd4bf", "#e2e8f0"))
+            "Injection support for new perforations", "Stimulate / re-perforate interval"),
+  job = c("ADPERF", "ISOLATION", "STIM", "ALS_CHANGE", "REACTIVATION", "ISOLATION", "STIM", "CONFORMANCE", "RATE", "RATE", "REPERF"),
+  color = c("#22d3ee", "#60a5fa", "#a78bfa", "#c084fc", "#94a3b8", "#fbbf24", "#3b82f6", "#f87171", "#2dd4bf", "#e2e8f0", "#34d399"))
 action_label <- function(a) { l <- actions$label[match(a, actions$action)]; ifelse(is.na(l), a, l) }
 action_color <- function(a) { l <- actions$color[match(a, actions$action)]; ifelse(is.na(l), "#e2e8f0", l) }
 action_job <- function(a) { l <- actions$job[match(a, actions$action)]; ifelse(is.na(l), a, l) }
@@ -390,6 +390,14 @@ well_findings <- function(res, asof, st = res$settings) {
   iv <- res$ds$intervals; psum <- profile_summary(res$ds$profiles)
   wm <- res$well_master
   ivh <- res$ds$interventions
+  cands <- log_candidates(res$ds, asof)
+  cst <- completion_state(res$ds$completions, asof)
+  alg_ev <- function(w, itv) {
+    if (is.null(cands)) return(NULL)
+    m <- cands[well == w & target == itv]
+    if (!nrow(m)) return(NULL)
+    list(row = ev_row("Log algorithms that found it", m$n[1], m$n_of[1], "count", m$algorithms[1]), n = m$n[1], of = m$n_of[1], alg = m$algorithms[1])
+  }
   if (!is.null(iv) && nrow(iv)) {
     iv <- merge(data.table::copy(iv), wm[, .(well, fld = field)], by = "well", all.x = TRUE)
     iv[, grp := data.table::fcoalesce(field, fld, "Field")]
@@ -405,9 +413,13 @@ well_findings <- function(res, asof, st = res$settings) {
       qa_ev <- if (qa_corr) list(ev_row("QA result", NA_real_, NA_real_, "-", sprintf("estimate corrected by the QA function: %s", r$qa))) else list()
       qa_chk <- if (qa_corr) sprintf("Review the QA-corrected estimate (qa_resultado: %s)", r$qa) else character()
       q_txt <- sprintf("qo %s bopd, qw %s bwpd, qf %s bfpd (BSW %s)", fmt_int(r$qo0), fmt_int(r$qw0), fmt_int(r$qf0), fmtp(r$bsw0_pct, 0))
-      if (r$estado %in% c("cerrado", "parcial")) {
+      cf <- if (is.finite(r$top_ft) && is.finite(r$base_ft)) interval_conflict(cst, r$well, r$top_ft, r$base_ft) else ""
+      if (r$estado == "parcial" && cf == "already open") cf <- ""
+      if (r$estado %in% c("cerrado", "parcial") && cf == "") {
         # ---- W1: interval with potential, never or partly opened -> additional perforations ----
         fam <- no_fam(); ev <- list()
+        ae <- alg_ev(r$well, r$interval_id)
+        if (!is.null(ae)) { ev[[length(ev) + 1]] <- ae$row; if (ae$n >= 2) fam["U"] <- TRUE }
         m1 <- is.finite(r$np_ooip) && r$np_ooip <= st$int_npooip_max
         m2 <- is.finite(r$sw_act) && r$sw_act <= st$int_sw_max
         if (is.finite(r$np_ooip)) ev[[length(ev) + 1]] <- ev_row("Np / OOIP", r$np_ooip, st$int_npooip_max, "fraction", if (m1) "little depletion" else "already depleted")
@@ -444,9 +456,9 @@ well_findings <- function(res, asof, st = res$settings) {
           action = sprintf("%s unit %s %s (%s) in %s.", verb, r$sand, r$interval_id, depth, r$well),
           outcome = sprintf("Initial %s.%s", q_txt, if (!is.null(ps) && nrow(ps)) sprintf(" Bajo / Base / Alto oil %s / %s / %s bopd.", fmt_int(ps$qo1_Bajo), fmt_int(ps$qo1_Base), fmt_int(ps$qo1_Alto)) else ""),
           window = "1-3 months"), gain, stake, gain_src = if (!is.null(ps) && nrow(ps)) "PROFILE" else "INTERVAL")
-        o$meta <- list(sw_act = r$sw_act, qa = r$qa, estado = r$estado, top = r$top_ft, base = r$base_ft)
+        o$meta <- list(sw_act = r$sw_act, qa = r$qa, estado = r$estado, top = r$top_ft, base = r$base_ft, qo = r$qo0, qw = r$qw0)
         add(o)
-      } else if (r$estado == "abierto" && is.finite(r$bsw0_pct) && r$bsw0_pct >= st$wso_bsw) {
+      } else if ((r$estado == "abierto" || cf == "already open") && is.finite(r$bsw0_pct) && r$bsw0_pct >= st$wso_bsw) {
         # ---- W2: open interval that mostly brings water -> water shut-off ----
         fam <- no_fam(); fam["U"] <- TRUE
         ev <- list(ev_row("Initial BSW of the interval", r$bsw0_pct, st$wso_bsw, "%", q_txt))
@@ -471,6 +483,69 @@ well_findings <- function(res, asof, st = res$settings) {
           window = "1 month"), NA_real_, NA_real_, gain_src = NA_character_))
       }
     }
+  }
+
+  # ---- W1 for candidates of the log algorithms without a potential estimate yet ----
+  if (!is.null(cands)) for (i in which(cands$conflict == "" & is.na(cands$interval_id))) {
+    c <- cands[i]
+    fam <- no_fam(); if (c$n >= 2) fam["U"] <- TRUE
+    depth <- sprintf("%s-%s ft", fmt_int(c$top_ft), fmt_int(c$base_ft))
+    o <- new_finding("WELL", "W1", "ADPERF", c$well, c$sand, c$cand_id, fam,
+      data.table::rbindlist(list(ev_row("Log algorithms that found it", c$n, c$n_of, "count", c$algorithms))), list(
+      maturity = "-", velocity = "-", vertical = sprintf("Candidate %s, %s, unit %s; found by %s (%d of %d algorithms).", c$cand_id, depth, data.table::fcoalesce(c$sand, "n/a"), c$algorithms, c$n, c$n_of),
+      spatial = "-", ops = "Not perforated per the completion history.",
+      mechanism = "Interval with potential in the logs, not yet evaluated by the single-well analysis.",
+      alternatives = c("False positive of the log algorithms"), gaps = c("Potential of the interval (single-well analysis)"),
+      validation = c("Run the single-well analysis on the interval", "Cement / casing integrity across the interval"),
+      action = sprintf("Perforate %s (%s) in %s.", c$cand_id, depth, c$well), outcome = "No potential estimate yet.", window = "-"),
+      NA_real_, NA_real_, gain_src = NA_character_)
+    o$meta <- list(top = c$top_ft, base = c$base_ft, estado = "cerrado")
+    add(o)
+  }
+
+  # ---- W2b: water offenders from the interval rates (oil and water per open interval) ----
+  off <- water_offenders(res$ds, asof)
+  if (!is.null(off)) for (i in which(off$share >= st$offender_share & off$wc >= st$offender_wc)) {
+    x <- off[i]
+    fam <- no_fam(); fam["U"] <- TRUE; fam["M"] <- TRUE
+    depth <- sprintf("%s-%s ft", fmt_int(x$top_ft), fmt_int(x$base_ft))
+    o <- new_finding("WELL", "W2", "WSO", x$well, x$sand, x$target, fam, data.table::rbindlist(list(
+      ev_row("Share of the well's water", 100 * x$share, 100 * st$offender_share, "%", sprintf("rank %d in the well", x$rank)),
+      ev_row("Water cut of the interval", 100 * x$wc, 100 * st$offender_wc, "%", sprintf("qo %s bopd, qw %s bwpd (%s)", fmt_int(x$qo), fmt_int(x$qw), data.table::fcoalesce(x$method, "interval rates"))))), list(
+      maturity = sprintf("Interval water cut %s.", fmtp(100 * x$wc, 0)), velocity = "-",
+      vertical = sprintf("%s (%s), unit %s: %s of the well's water.", x$target, depth, data.table::fcoalesce(x$sand, "n/a"), fmtp(100 * x$share, 0)),
+      spatial = "-", ops = sprintf("Isolating it removes about %s bwpd and %s bopd.", fmt_int(x$qw), fmt_int(x$qo)),
+      mechanism = "Open interval watered out: it brings most of the water and little oil.",
+      alternatives = c("Water from behind casing, not from the interval", "Rates allocated by a model, not measured"),
+      gaps = character(), validation = c("Isolation method (plug, packer, squeeze) compatible with the intervals below", "Confirm the water entry (PLT or test)"),
+      action = sprintf("Isolate %s (%s) in %s.", x$target, depth, x$well),
+      outcome = sprintf("Water down about %s bwpd, oil down about %s bopd.", fmt_int(x$qw), fmt_int(x$qo)), window = "1 month"),
+      NA_real_, NA_real_, gain_src = NA_character_)
+    o$meta <- list(top = x$top_ft, base = x$base_ft, qo = -x$qo, qw = -x$qw)
+    add(o)
+  }
+
+  # ---- W5: open interval below its theoretical potential -> stimulate / re-perforate ----
+  pg <- potential_gaps(res$ds, asof)
+  if (!is.null(pg)) for (i in which(is.finite(pg$gap) & pg$gap >= st$reperf_gap_min & pg$gap >= st$reperf_gap_frac * pg$qo_theo)) {
+    x <- pg[i]
+    fam <- no_fam(); fam["V"] <- TRUE
+    ev <- list(ev_row("Oil rate vs theoretical potential", x$qo_now, x$qo_theo, "bopd", sprintf("gap %s bopd", fmt_int(x$gap))))
+    wc <- x$qw_now / max(x$qo_now + x$qw_now, 1e-9)
+    if (is.finite(wc) && wc < st$offender_wc) { fam["U"] <- TRUE; ev[[2]] <- ev_row("Water cut of the interval", 100 * wc, 100 * st$offender_wc, "%", "oil-bearing") }
+    depth <- sprintf("%s-%s ft", fmt_int(x$top_ft), fmt_int(x$base_ft))
+    qw_add <- if (is.finite(x$qw_theo) && is.finite(x$qw_now)) max(x$qw_theo - x$qw_now, 0) else x$gap * x$qw_now / max(x$qo_now, 1)
+    o <- new_finding("WELL", "W5", "REPERF", x$well, x$sand, x$target, fam, data.table::rbindlist(ev), list(
+      maturity = "-", velocity = sprintf("Interval makes %s bopd against a theoretical %s bopd.", fmt_int(x$qo_now), fmt_int(x$qo_theo)),
+      vertical = sprintf("%s (%s), unit %s.", x$target, depth, data.table::fcoalesce(x$sand, "n/a")), spatial = "-", ops = "-",
+      mechanism = "Damage or partial plugging of the perforations: the interval produces below its potential.",
+      alternatives = c("Theoretical potential overestimated", "Lower pressure in the unit"),
+      gaps = character(), validation = c("Damage diagnosis (skin) or perforation efficiency", "Choose stimulation or re-perforation"),
+      action = sprintf("Stimulate or re-perforate %s (%s) in %s.", x$target, depth, x$well),
+      outcome = sprintf("Interval back toward %s bopd.", fmt_int(x$qo_theo)), window = "1 month"),
+      x$gap, NA_real_, gain_src = "POTENTIAL")
+    o$meta <- list(top = x$top_ft, base = x$base_ft, qo = x$gap, qw = qw_add)
+    add(o)
   }
 
   # ---- W3 / W4 from the well's own history (any drive) ----
@@ -608,7 +683,7 @@ merge_findings <- function(fs) {
   fs <- fs[ok]
   if (!length(fs)) return(list(records = list(), unassigned = unassigned))
   keys <- vapply(fs, `[[`, "", "key")
-  src_rank <- c(PROFILE = 1, SF_FIT = 2, ARPS = 3, SOURCE = 4, INTERVAL = 5)
+  src_rank <- c(PROFILE = 1, SF_FIT = 2, POTENTIAL = 3, ARPS = 3, SOURCE = 4, INTERVAL = 5)
   recs <- lapply(split(fs, factor(keys, levels = unique(keys))), function(g) {
     nf <- vapply(g, function(f) sum(f$fam), 0)
     g <- g[order(-nf)]
@@ -628,7 +703,7 @@ merge_findings <- function(fs) {
          fam = fam, evidence = data.table::rbindlist(lapply(g, `[[`, "evidence"), fill = TRUE), text = tx,
          gain = best$gain, gain_src = best$gain_src, stake = if (any(is.finite(stakes))) max(stakes, na.rm = TRUE) else NA_real_,
          legacy_key = { lk <- stats::na.omit(vapply(g, function(f) f$legacy_key %||% NA_character_, "")); if (length(lk)) lk[[1]] else NA_character_ },
-         meta = p$meta %||% list())
+         meta = Reduce(function(a, b) utils::modifyList(b, a), lapply(g, function(f) f$meta %||% list())))
   })
   list(records = recs, unassigned = unassigned)
 }

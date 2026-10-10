@@ -213,7 +213,42 @@ make_demo_data <- function(seed = 7, start = as.Date("2000-01-01"), end = as.Dat
   list(Wells = wells, Alloc = alloc, Vol = vol, Fluids = fluids[, .(Reservoir = reservoir, API = api, Rs = rs, Bo = bo, Bw = bw,
        visco, viscw, Swc = swc, Sor = sor, Krw = krw, Kro = kro, Nw = nw, No = no)],
        InjSand = isd, InjSand_status = stt, Hierarchy = hierarchy, Baseline = baseline,
-       Interventions = interventions, WellStatus = ws, Intervalos = wa$intervals, Perfiles_Mensuales = wa$profiles, Findings = findings)
+       Interventions = interventions, WellStatus = ws, Intervalos = wa$intervals, Perfiles_Mensuales = wa$profiles, Findings = findings,
+       Log_Intervals = demo_wellbore()$log, Completions = demo_wellbore()$comp, Interval_Rates = demo_wellbore()$rates,
+       Interval_Potential = demo_wellbore()$pot, Job_Costs = demo_wellbore()$costs, Lift_Status = demo_wellbore()$lift)
+}
+
+# Wellbore inputs for the demo. SAT-01 is the workbench example: three log algorithms, a squeezed
+# interval and a plug that block two of their candidates, a watered-out open interval (offender),
+# an open interval below its theoretical potential, and an ESP near the end of its run life.
+demo_wellbore <- function() {
+  li <- data.table::rbindlist(list(
+    data.table::data.table(Algorithm = "A cutoffs", Well = "SAT-01", Top_ft = c(4705, 4820, 4925, 5015), Base_ft = c(4725, 4846, 4946, 5028)),
+    data.table::data.table(Algorithm = "B log classifier", Well = "SAT-01", Top_ft = c(4707, 4745, 4822, 4926), Base_ft = c(4726, 4758, 4848, 4944)),
+    data.table::data.table(Algorithm = "C saturation model", Well = "SAT-01", Top_ft = c(4706, 4819, 4905, 4990), Base_ft = c(4727, 4845, 4912, 5001)),
+    data.table::data.table(Algorithm = "A cutoffs", Well = "PRD-07", Top_ft = c(5210), Base_ft = c(5238)),
+    data.table::data.table(Algorithm = "B log classifier", Well = "PRD-07", Top_ft = c(5212, 5300), Base_ft = c(5240, 5312)),
+    data.table::data.table(Algorithm = "C saturation model", Well = "PRD-07", Top_ft = c(5300), Base_ft = c(5311))))
+  li[, Score := round(0.6 + 0.35 * ((Top_ft %% 7) / 7), 2)]
+  comp <- data.table::data.table(
+    Well = c("SAT-01", "SAT-01", "SAT-01", "SAT-01", "SAT-01", "SAT-01", "PRD-07", "PRD-07"),
+    Top_ft = c(4770, 4880, 4925, 4905, 4905, 5010, 5262, 5120),
+    Base_ft = c(4790, 4898, 4932, 4912, 4912, 5010, 5283, 5150),
+    Type = c("PERFORATION", "PERFORATION", "PERFORATION", "PERFORATION", "SQUEEZE", "PLUG", "PERFORATION", "PERFORATION"),
+    Date = as.Date(c("2012-01-01", "2014-03-01", "2016-05-01", "2012-01-01", "2019-08-01", "2020-02-01", "2008-01-01", "2008-01-01")),
+    Status = c("OPEN", "OPEN", "OPEN", "OPEN", "ACTIVE", "ACTIVE", "OPEN", "OPEN"))
+  rates <- data.table::data.table(Well = "SAT-01", Interval_ID = c("A3", "INT002", "INT005"), Top_ft = c(4770, 4880, 4925), Base_ft = c(4790, 4898, 4932),
+                                  Unit = c("A", "C", "C"), Date = as.Date("2026-07-01"), Qo = c(4, 30, 12), Qw = c(230, 100, 30), Method = "rates v1")
+  pot <- data.table::data.table(Well = "SAT-01", Interval_ID = c("INT002", "INT005"), Top_ft = c(4880, 4925), Base_ft = c(4898, 4932), Unit = c("C", "C"),
+                                Qo_theo = c(105, 16), Qw_theo = c(150, 34))
+  costs <- data.table::data.table(Job_Type = rep(c("RIG", "ADPERF", "ISOLATION", "STIM", "REPERF", "ALS_CHANGE", "REACTIVATION", "CONFORMANCE", "RATE"), each = 2),
+                                  Depth_min_ft = rep(c(0, 5000), 9), Depth_max_ft = rep(c(5000, 99999), 9),
+                                  Cost_USD = c(140000, 190000, 38000, 48000, 55000, 70000, 45000, 55000, 35000, 42000, 170000, 200000, 70000, 90000, 65000, 80000, 5000, 5000))
+  lift <- data.table::data.table(Well = c("SAT-01", "SAT-03", "SAT-06", "PRD-07", "PRD-09", "PRD-12"), Lift_Type = c("ESP", "BEAM", "PCP", "ESP", "ESP", "BEAM"),
+                                 Install_Date = as.Date(c("2024-10-15", "2023-05-01", "2025-09-01", "2025-06-01", "2024-02-01", "2022-11-01")),
+                                 Expected_Runlife_Days = c(700, 1400, 900, 700, 700, 1500), Capacity_bfpd = c(1500, 600, 800, 3200, 2500, 900),
+                                 Failures_12m = c(1, 0, 0, 0, 2, 0))
+  list(log = li, comp = comp, rates = rates, pot = pot, costs = costs, lift = lift)
 }
 
 # Producer analysis for the demo: intervals proposed from the logs (closed = never perforated),
@@ -297,4 +332,15 @@ write_demo_data <- function(dir = "data/demo") {
   data.table::fwrite(s[, .(Pattern = entity, Date = date, WOR = round(wor, 3), Util = round(util12, 2), TP = round(tp, 2),
                            IWR = round(iwr, 3))], file.path(dir, "Patterns_Vel.csv"))
   invisible(d)
+}
+
+# A few proposals so the demo portfolio has something to rank (only into an empty store).
+seed_demo_jobs <- function(con, op, res, asof, st) {
+  props <- list(list(k = c("ADPERF|PRD-07|B|INT001"), n = "PRD-07 unit B perforation"),
+                list(k = c("ADPERF|SAT-06|C|INT001"), n = "SAT-06 unit C perforation"),
+                list(k = c("STIM_INJ|INJ-13|-|-"), n = "INJ-13 acid job"),
+                list(k = c("REACTIVATE|SAT-05|-|-"), n = "SAT-05 rod repair"),
+                list(k = c("ADPERF|PRD-13|C|INT001"), n = "PRD-13 unit C perforation"))
+  for (p in props) if (all(p$k %in% op$summary$key)) try(job_propose(con, op, p$k, res, asof, st, "demo engineer", p$n, "demo proposal"), silent = TRUE)
+  invisible(TRUE)
 }
