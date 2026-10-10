@@ -1,0 +1,457 @@
+<title>ADPERF Potential Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; each stage of the flow is a section with its working screen in a scrollable well. */
+:root{
+ --paper:#f4f5f2;--panel:#fcfcfb;--panel-2:#f0f1ec;--ink:#0b0b0b;--ink-2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--rule:#dcdcd4;
+ --accent:#0b7285;--accent-soft:#dff1f4;
+ --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s7:#6250d6;
+ --oil:#1baf7a;--water:#2a78d6;
+ --good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;--good-text:#006300;
+ --open:#0b0b0b;--squeeze:#898781;
+ --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--cond:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --paper:#0d0d0d;--panel:#1a1a19;--panel-2:#222220;--ink:#f0efec;--ink-2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--rule:#2c2c2a;
+ --accent:#4fc3d4;--accent-soft:#12303a;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s7:#9085e9;--oil:#199e70;--water:#3987e5;--good-text:#0ca30c;
+ --open:#f0efec;--squeeze:#898781;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --paper:#0d0d0d;--panel:#1a1a19;--panel-2:#222220;--ink:#f0efec;--ink-2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--rule:#2c2c2a;
+ --accent:#4fc3d4;--accent-soft:#12303a;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s7:#9085e9;--oil:#199e70;--water:#3987e5;--good-text:#0ca30c;
+ --open:#f0efec;--squeeze:#898781;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.6 var(--sans)}
+.wrap{max-width:1200px;margin:0 auto;padding-inline:20px;padding-block:32px 64px}
+header{display:grid;gap:10px;margin-bottom:26px}
+.eyebrow{font:500 12px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,4vw,44px)/1.05 var(--cond);margin:0;text-wrap:balance}
+h2{font:600 clamp(22px,2.4vw,28px)/1.15 var(--cond);margin:4px 0 10px;text-wrap:balance}
+h3{font:600 16px/1.3 var(--cond);margin:0 0 8px}
+p,li{color:var(--ink-2)} p{margin:0 0 10px;max-width:80ch}
+.lead{font-size:17px;max-width:76ch}
+section{padding-bottom:34px;margin-bottom:34px;border-bottom:1px solid var(--rule)}
+section:last-child{border-bottom:0}
+code{font-family:var(--mono);font-size:.84em;background:var(--panel-2);padding:1px 5px;border-radius:4px}
+.cap{font-size:13px;color:var(--muted);max-width:92ch}
+/* flow strip */
+.flow{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.flow .st{flex:1 1 128px;min-width:0;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;display:grid;gap:4px}
+.flow .st b{font:600 13px/1.25 var(--cond)}
+.flow .st span{font-size:11.5px;color:var(--muted);line-height:1.35}
+.chip{display:inline-flex;align-items:center;gap:5px;font:600 10.5px/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);white-space:nowrap}
+.chip i{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.chip.av i{background:var(--good)} .chip.pa i{background:var(--warning)} .chip.mi i{background:var(--critical)}
+.chip.av::before{content:"✓";color:var(--good-text)} .chip.pa::before{content:"◐";color:var(--ink-2)} .chip.mi::before{content:"✕";color:var(--critical)}
+/* screens */
+.well{overflow-x:auto;border:1px solid var(--rule);border-radius:12px;background:var(--panel);margin:12px 0 8px}
+.scr{min-width:1120px;padding:14px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:10px}
+.bar .t{font:600 15px/1.2 var(--cond)}
+.pill{font:500 11px/1 var(--mono);padding:5px 8px;border-radius:12px;border:1px solid var(--rule);color:var(--ink-2);background:var(--panel-2)}
+.pill.crit{border-color:var(--critical);color:var(--critical)}
+.grid-ws{display:grid;grid-template-columns:520px minmax(0,1fr);gap:14px}
+.scr .two{grid-template-columns:repeat(2,minmax(0,1fr))}
+#pf .scr .two{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
+.card{background:var(--panel-2);border:1px solid var(--rule);border-radius:10px;padding:12px;min-width:0}
+.card h4{margin:0 0 8px;font:600 10.5px/1.2 var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+svg text{fill:var(--muted);font:10px var(--mono)}
+svg .lbl{fill:var(--ink-2)}
+svg .hit{cursor:pointer}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:600 10.5px/1.25 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+td.n,th.n{text-align:right}
+tr.sel td{background:var(--accent-soft)}
+tr.bad td{color:var(--muted)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;vertical-align:middle}
+.dot.off{background:transparent;border:1px solid var(--axis)}
+input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;vertical-align:middle}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.kpi{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;min-width:0}
+.kpi small{display:block;font:500 10px/1.2 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kpi b{display:block;font:600 19px/1.25 var(--sans);color:var(--ink)}
+.kpi span{font-size:11px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.seg button{font:500 11.5px/1 var(--sans);padding:6px 10px;border:0;background:var(--panel);color:var(--ink-2);cursor:pointer;border-right:1px solid var(--rule)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--ink);font-weight:600}
+.seg button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink-2);margin:4px 0 8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:10px;border-radius:2px;display:inline-block}
+.flag{font:600 10.5px/1.2 var(--mono);color:var(--critical)}
+.flag.w{color:var(--ink-2)}
+.pipe{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:8px}
+.pipe .col{background:var(--panel-2);border:1px solid var(--rule);border-radius:10px;padding:8px;min-width:0}
+.pipe .col h5{margin:0 0 6px;font:600 11px/1.2 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);display:flex;justify-content:space-between}
+.jc{background:var(--panel);border:1px solid var(--rule);border-radius:7px;padding:6px 7px;margin-bottom:6px;font-size:11.5px;line-height:1.35}
+.jc b{font-size:12px} .jc .m{color:var(--muted)}
+td .chip{white-space:normal;line-height:1.3}
+.gap td:first-child{font-weight:600;color:var(--ink)}
+.tip{position:fixed;pointer-events:none;z-index:9;background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:8px;padding:7px 9px;font:12px/1.4 var(--sans);box-shadow:0 6px 18px rgba(0,0,0,.18);max-width:300px}
+.tip b{font-weight:600}
+.q{list-style:none;padding:0;margin:0;counter-reset:q}
+.q li{counter-increment:q;display:grid;grid-template-columns:34px minmax(0,1fr);padding:8px 0;border-bottom:1px solid var(--rule)}
+.q li::before{content:"Q" counter(q);font:600 12px/1.6 var(--mono);color:var(--accent)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+ <div class="eyebrow">FloodPulse v3 · well opportunities · design for review</div>
+ <h1>ADPERF potential workbench</h1>
+ <p class="lead">From intervals found in the logs to a job that is approved, executed and tracked. The first screen is where the engineer compares what several algorithms propose with what the wellbore already has open, squeezed or isolated, picks the intervals, adds the isolation of the worst water offender, and sees the job's combined potential and uncertainty. The values are illustrative.</p>
+ <div class="flow" aria-label="Flow and what the app does today">
+  <div class="st"><b>1 Identify</b><span>several algorithms scan the logs</span><span class="chip mi">missing</span></div>
+  <div class="st"><b>2 Compare</b><span>against open, squeezed, isolated</span><span class="chip pa">partial</span></div>
+  <div class="st"><b>3 Aggregate</b><span>potential and uncertainty</span><span class="chip av">available</span></div>
+  <div class="st"><b>4 Offenders</b><span>water offender ranking</span><span class="chip pa">partial</span></div>
+  <div class="st"><b>5 Compose job</b><span>3 ADPERF + 1 isolation (+ ALS)</span><span class="chip pa">partial</span></div>
+  <div class="st"><b>6 Portfolio</b><span>value, uncertainty, cost, risk, opportunity</span><span class="chip pa">partial</span></div>
+  <div class="st"><b>7 Approve</b><span>proposed to scheduled</span><span class="chip pa">partial</span></div>
+  <div class="st"><b>8 Track</b><span>actual vs frozen forecast</span><span class="chip av">available</span></div>
+ </div>
+ <p class="cap">Status of each step in the app today; section 5 explains each one.</p>
+</header>
+
+<section id="ws">
+ <div class="eyebrow">1 · Well screen</div>
+ <h2>Compare the candidates against the wellbore</h2>
+ <p>Click an interval in the log or tick it in the table to add it to the job. Candidates found by several algorithms merge into one interval when they overlap. A candidate that falls on a squeezed interval or below a plug is flagged instead of being offered.</p>
+ <div class="well"><div class="scr">
+  <div class="bar"><span class="t">CIRA1001 · producer · ESP</span><span class="pill">AOSP › CT-ALPHA › La Cira › Structure N</span><span class="pill">waterflood · P07 60 % · P08 40 %</span><span class="pill">now 76 bopd · 2,870 bwpd · WC 97 %</span><span class="pill crit">✕ ESP run life 98 %</span></div>
+  <div class="grid-ws">
+   <div class="card"><h4>Log, completion and candidates</h4>
+    <div class="legend">
+     <span><i class="sw" style="background:var(--s1)"></i>Algorithm A · cutoffs</span><span><i class="sw" style="background:var(--s2)"></i>Algorithm B · log classifier</span><span><i class="sw" style="background:var(--s3)"></i>Algorithm C · saturation model</span>
+    </div>
+    <svg id="log" viewBox="0 0 670 790" width="100%" role="img" aria-label="Composite log of CIRA1001 from 4,690 to 5,040 ft with completion state, three algorithm tracks, consensus, water offenders and the job selection"></svg>
+    <div class="legend"><span><i class="sw" style="background:var(--open)"></i>open perforations</span><span><i class="sw" style="background:repeating-linear-gradient(45deg,var(--squeeze) 0 2px,transparent 2px 5px);border:1px solid var(--squeeze)"></i>squeezed</span><span><i class="sw" style="background:var(--squeeze)"></i>below plug (isolated)</span><span>water share: ▲ critical · ● serious</span><span><i class="sw" style="background:var(--s2)"></i>in charts below: reduction</span></div>
+   </div>
+   <div style="display:grid;gap:12px;align-content:start;min-width:0">
+    <div class="card"><h4>Candidates (merged across algorithms)</h4>
+     <div style="overflow-x:auto"><table id="cand"><thead><tr><th></th><th>ID</th><th>Depth ft</th><th>Unit</th><th>Found by</th><th class="n">kh</th><th class="n">Sw act</th><th class="n">Oil B / B / A</th><th class="n">BSW %</th><th>Check</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card"><h4>Open intervals ranked as water offenders</h4>
+     <table id="off"><thead><tr><th>Isolate</th><th>Interval</th><th>Depth ft</th><th class="n">Water share</th><th class="n">Water bwpd</th><th class="n">Oil bopd</th><th>Offender</th></tr></thead><tbody></tbody></table>
+    </div>
+   </div>
+  </div>
+ </div></div>
+ <p class="cap">Candidates I6 and I7 show why the comparison matters: algorithm C proposes the squeezed 4,902-4,910 ft, and algorithm A proposes a zone below the plug at 5,010 ft. Both stay visible and flagged, and neither can be added to the job.</p>
+</section>
+
+<section id="job">
+ <div class="eyebrow">2 · Job composer</div>
+ <h2>One rig visit: intervals, isolation and lift</h2>
+ <p>Intervals add up, and the isolation removes the offender's oil and water. The liquid after the job is checked against the pump. The ESP run life is checked against its expected life, which can justify doing the job now.</p>
+ <div class="well"><div class="scr">
+  <div class="bar"><span class="t" id="jobname">Job proposal · CIRA1001</span>
+   <span style="margin-left:auto;font-size:12px;color:var(--ink-2)">Uncertainty of the sum</span>
+   <div class="seg" role="group" aria-label="How interval uncertainties combine"><button id="u-cor" aria-pressed="true">Correlated (sum Bajo / Alto)</button><button id="u-ind" aria-pressed="false">Independent (root-sum-square)</button></div>
+  </div>
+  <div class="kpis" id="jk"></div>
+  <div class="two">
+   <div class="card"><h4>Oil rate, bopd: now → job (Base)</h4><svg id="wf-oil" viewBox="0 0 520 230" width="100%" role="img" aria-label="Oil rate waterfall from the current rate to the rate after the job"></svg></div>
+   <div class="card"><h4>Water rate, bwpd: now → job (Base)</h4><svg id="wf-wat" viewBox="0 0 520 230" width="100%" role="img" aria-label="Water rate waterfall from the current rate to the rate after the job"></svg></div>
+   <div class="card"><h4>Incremental oil of the job, bopd, Bajo-Base-Alto</h4><svg id="fan" viewBox="0 0 520 220" width="100%" role="img" aria-label="Forecast of the job's incremental oil over 24 months with the Bajo to Alto band"></svg></div>
+   <div class="card"><h4>Lift check</h4><svg id="lift" viewBox="0 0 520 220" width="100%" role="img" aria-label="Liquid after the job against ESP capacity, and ESP run life against expected life"></svg></div>
+  </div>
+ </div></div>
+</section>
+
+<section id="pf">
+ <div class="eyebrow">3 · Portfolio</div>
+ <h2>Rank the job against the other proposals</h2>
+ <p>Each proposal is a job (one or more opportunities on one well). Value comes from the economic function once it is plugged in; until then the screen ranks risked oil. Jobs triggered by an opportunity, such as a lift near the end of its life or a well already down, show the trigger and get the bonus the asset decides.</p>
+ <div class="well"><div class="scr">
+  <div class="two">
+   <div class="card"><h4>Risked oil in 12 months vs uncertainty</h4>
+    <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>planned</span><span><i class="sw" style="background:var(--s2)"></i>triggered by an opportunity</span><span>size = cost</span></div>
+    <svg id="pfplot" viewBox="0 0 520 330" width="100%" role="img" aria-label="Scatter of job proposals: risked oil in 12 months against relative uncertainty, sized by cost and coloured by trigger"></svg></div>
+   <div class="card"><h4>Ranking</h4><div style="overflow-x:auto"><table id="pftab"><thead><tr><th class="n">#</th><th>Job</th><th>Content</th><th class="n">Risked oil 12 m</th><th class="n">Cost MUSD</th><th class="n">P(succ)</th><th>Trigger</th><th class="n">Score</th></tr></thead><tbody></tbody></table></div>
+    <p class="cap" style="margin-top:8px">Score = risked oil per cost, scaled 0-100, × (1 + opportunity bonus 0.25) − 10 × relative uncertainty. Weights and the bonus would be settings; the private economic function replaces risked oil with value when plugged in.</p></div>
+  </div>
+ </div></div>
+</section>
+
+<section id="ap">
+ <div class="eyebrow">4 · Approval, execution, tracking</div>
+ <h2>From proposal to result</h2>
+ <div class="well"><div class="scr">
+  <div class="pipe" id="pipe"></div>
+  <div class="card" style="margin-top:12px"><h4>Tracking · PRD-11 job JOB-PRD11-2501 (ADPERF unit D), actual incremental vs frozen forecast</h4><svg id="track" viewBox="0 0 1000 230" width="100%" role="img" aria-label="Actual incremental oil of an executed job against its frozen Bajo, Base and Alto forecast"></svg></div>
+ </div></div>
+ <p class="cap">Approval needs a job status of its own (proposed, technical review, approved, scheduled, executed, evaluated) with who approved and when. Opportunities keep their own status; a job moves its opportunities to executed when it is executed.</p>
+</section>
+
+<section id="gap">
+ <div class="eyebrow">5 · What exists today</div>
+ <h2>Gap analysis against the current app</h2>
+ <div style="overflow-x:auto"><table class="gap">
+  <thead><tr><th>Step</th><th>Status</th><th>In the app today</th><th>Needed</th></tr></thead>
+  <tbody>
+  <tr><td>Several algorithms scan the logs</td><td><span class="chip mi">missing</span></td><td>INTERVALOS holds one set of intervals; another source can only arrive through Findings.</td><td><code>algorithm</code> column in INTERVALOS (or one table per algorithm); merge of overlapping intervals into candidates; agreement count as evidence.</td></tr>
+  <tr><td>Compare with open, squeezed, isolated</td><td><span class="chip pa">partial</span></td><td>estado_apertura per interval (abierto, cerrado, parcial). No squeezes, plugs or depths of the completion.</td><td>A <code>Completions</code> table: well, top, base, type (perforation, squeeze, plug, sleeve), date, status. Conflict check of each candidate against it.</td></tr>
+  <tr><td>Aggregate potential and uncertainty</td><td><span class="chip av">available</span></td><td>The job builder sums the Bajo / Base / Alto profiles of the picked intervals (intervals add up).</td><td>Option for independent intervals (root-sum-square), as in the composer above.</td></tr>
+  <tr><td>Water offender ranking</td><td><span class="chip pa">partial</span></td><td>Rule W2: an open interval with initial BSW at or above 97 % becomes a water shut-off opportunity.</td><td>The offender algorithm's output (well, interval, water share, method) as its own lens; its oil and water removed in the job forecast.</td></tr>
+  <tr><td>Compose a job (3 ADPERF + 1 isolation)</td><td><span class="chip pa">partial</span></td><td>The engineer ticks any opportunities on a well into one job; the forecast counts ADPERF profiles only.</td><td>Isolation effect in the job forecast; lift check; an automatic first proposal (best intervals + worst offender) the engineer edits.</td></tr>
+  <tr><td>Stimulate or re-perforate</td><td><span class="chip mi">missing</span></td><td>Only rule W3: the well's rate below its own decline.</td><td>Theoretical potential per open interval; gap = theoretical − current → STIM or REPERF opportunity with that gain.</td></tr>
+  <tr><td>Portfolio: value, uncertainty, cost, risk</td><td><span class="chip pa">partial</span></td><td>Score per opportunity from evidence, gain, EUR and Bajo-Alto spread; economics hook (WF_ECON_FILE).</td><td>Ranking per job; cost per job type; P(success) per action and field from outcomes; economics plugged in.</td></tr>
+  <tr><td>Opportunity criterion (lift run life)</td><td><span class="chip mi">missing</span></td><td>WellStatus has lift type and fluid level only.</td><td>Lift install date, expected run life and failures; well down; rig nearby. Each trigger flags the job and adds the bonus.</td></tr>
+  <tr><td>Approval and execution</td><td><span class="chip pa">partial</span></td><td>Opportunity statuses with history; jobs are PLANNED or EXECUTED.</td><td>Job status flow with approver, dates and comments.</td></tr>
+  <tr><td>Track result against forecast</td><td><span class="chip av">available</span></td><td>Forecast frozen at validation or logging; job verdict above Alto, within range or below Bajo against the sum of the job's forecasts.</td><td>Calibration of P(success) and of the profiles from the verdicts.</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="q">
+ <div class="eyebrow">6 · To confirm before building</div>
+ <h2>Questions</h2>
+ <ol class="q">
+  <li><div><b>Algorithm output.</b> Will each algorithm deliver INTERVALOS-like rows with an algorithm name, and do all of them come with Bajo / Base / Alto profiles, or only the final merged candidates?</div></li>
+  <li><div><b>Completion history.</b> Is there a table of perforations, squeezes and plugs by depth and date per well?</div></li>
+  <li><div><b>Water offender algorithm.</b> What does it return: water share per open interval, a rate, a rank? Does it estimate the oil lost when the interval is isolated?</div></li>
+  <li><div><b>Theoretical potential.</b> For stimulation or re-perforation, is the theoretical rate per open interval or per well?</div></li>
+  <li><div><b>Cost and risk.</b> Cost by job type (and by number of intervals)? Risk as P(success) from history, or a qualitative rating?</div></li>
+  <li><div><b>Lift data.</b> Install date, expected run life and failure history per well: available, and from which system?</div></li>
+  <li><div><b>Approval.</b> Which steps and roles (e.g. engineer proposes, lead approves, operations schedules)?</div></li>
+ </ol>
+</section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(function(){
+ var NS="http://www.w3.org/2000/svg";
+ function el(t,a,txt){var e=document.createElementNS(NS,t);for(var k in a)if(a[k]!=null)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e}
+ function clear(s){while(s.firstChild)s.removeChild(s.firstChild)}
+ function fmt(n,d){return (d?n.toFixed(d):Math.round(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,",")}
+ var tip=document.getElementById("tip");
+ function tipOn(e,h){tip.innerHTML=h;tip.hidden=false;var x=Math.min(e.clientX+14,window.innerWidth-310),y=e.clientY+14;tip.style.left=x+"px";tip.style.top=y+"px"}
+ function tipOff(){tip.hidden=true}
+ function hover(node,html){node.addEventListener("mousemove",function(e){tipOn(e,typeof html=="function"?html():html)});node.addEventListener("mouseleave",tipOff)}
+
+ // ---- illustrative well: CIRA1001 ----
+ var D0=4690,D1=5040;
+ var sands=[{t:4705,b:4731,k:"oil"},{t:4745,b:4757,k:"oil"},{t:4780,b:4800,k:"wet"},{t:4819,b:4848,k:"oil"},{t:4870,b:4885,k:"mix"},
+            {t:4902,b:4910,k:"wet"},{t:4925,b:4945,k:"oil"},{t:4960,b:4975,k:"mix"},{t:4990,b:5000,k:"oil"},{t:5015,b:5028,k:"oil"}];
+ var comp=[{t:4780,b:4800,type:"open",name:"A3 open 2014"},{t:4870,b:4885,type:"open",name:"B2 open 2014"},{t:4960,b:4975,type:"open",name:"C2 open 2016"},
+           {t:4902,b:4910,type:"squeeze",name:"squeezed 2019"},{t:5010,b:5040,type:"plug",name:"CIBP at 5,010 ft (2020)"}];
+ var algos={A:[[4705,4730],[4820,4846],[4925,4945],[5015,5028]],B:[[4708,4728],[4745,4757],[4822,4848],[4926,4942]],C:[[4710,4731],[4819,4845],[4902,4910],[4990,5000]]};
+ var cand=[
+  {id:"I1",t:4705,b:4731,u:"A1",by:"ABC",kh:2650,sw:.38,q:[45,90,150],bsw:40},
+  {id:"I2",t:4819,b:4848,u:"B1",by:"ABC",kh:3120,sw:.41,q:[60,120,200],bsw:55},
+  {id:"I3",t:4925,b:4945,u:"C1",by:"AB",kh:1980,sw:.44,q:[30,70,120],bsw:60},
+  {id:"I4",t:4745,b:4757,u:"A2",by:"B",kh:640,sw:.49,q:[10,25,45],bsw:70},
+  {id:"I5",t:4990,b:5000,u:"C3",by:"C",kh:420,sw:.52,q:[8,20,40],bsw:80},
+  {id:"I6",t:4902,b:4910,u:"B3",by:"C",kh:380,sw:.61,q:[5,12,25],bsw:90,bad:"on squeezed interval"},
+  {id:"I7",t:5015,b:5028,u:"D1",by:"A",kh:910,sw:.46,q:[15,35,60],bsw:65,bad:"below plug at 5,010 ft"}];
+ var offenders=[{id:"O1",name:"A3",t:4780,b:4800,share:.62,qw:1780,qo:8,sev:"critical"},{id:"O2",name:"B2",t:4870,b:4885,share:.25,qw:718,qo:41,sev:"serious"},{id:"O3",name:"C2",t:4960,b:4975,share:.13,qw:372,qo:27,sev:""}];
+ var now={qo:76,qw:2870};
+ var sel={I1:1,I2:1,I3:1}, iso={O1:1}, mode="cor";
+ var acol={A:"var(--s1)",B:"var(--s2)",C:"var(--s3)"};
+ function noise(d,s){return Math.sin(d*0.37+s)*0.5+Math.sin(d*1.13+2*s)*0.3+Math.sin(d*2.9+s*3)*0.2}
+ function inSand(d){for(var i=0;i<sands.length;i++)if(d>=sands[i].t&&d<=sands[i].b)return sands[i];return null}
+
+ // ---- log ----
+ var log=document.getElementById("log");
+ var T=40,H=730; function y(d){return T+(d-D0)/(D1-D0)*H}
+ var X={dep:[0,42],gr:[46,146],res:[150,250],comp:[256,300],A:[306,336],B:[340,370],C:[374,404],cons:[410,450],off:[456,570],job:[576,666]};
+ function drawLog(){
+  clear(log);
+  var heads=[["dep","ft"],["gr","GR 0-150"],["res","Res 1-100 Ω·m"],["comp","Wellbore"],["A","A"],["B","B"],["C","C"],["cons","Agree"],["off","Water share"],["job","Job"]];
+  heads.forEach(function(h){var x=X[h[0]];log.appendChild(el("text",{x:(x[0]+x[1])/2,y:16,"text-anchor":"middle",class:"lbl"},h[1]));log.appendChild(el("rect",{x:x[0],y:T,width:x[1]-x[0],height:H,fill:"none",stroke:"var(--grid)"}))});
+  for(var d=4700;d<=5040;d+=50){log.appendChild(el("text",{x:38,y:y(d)+3,"text-anchor":"end"},fmt(d)));log.appendChild(el("line",{x1:X.gr[0],x2:X.job[1],y1:y(d),y2:y(d),stroke:"var(--grid)","stroke-width":1}))}
+  // GR and resistivity curves (one track each, own scale)
+  var g="",r="";
+  for(var d2=D0;d2<=D1;d2+=1){var s=inSand(d2);var gr=s?45+8*noise(d2,1):112+12*noise(d2,2);
+   var res=s?(s.k=="oil"?35:s.k=="mix"?10:3.5)*Math.exp(0.25*noise(d2,3)):2.2*Math.exp(0.2*noise(d2,4));
+   var gx=X.gr[0]+gr/150*(X.gr[1]-X.gr[0]);var rx=X.res[0]+Math.log10(Math.max(res,1))/2*(X.res[1]-X.res[0]);
+   g+=(d2==D0?"M":"L")+gx.toFixed(1)+","+y(d2).toFixed(1);r+=(d2==D0?"M":"L")+rx.toFixed(1)+","+y(d2).toFixed(1)}
+  log.appendChild(el("path",{d:g,fill:"none",stroke:"var(--ink-2)","stroke-width":1.2}));
+  log.appendChild(el("path",{d:r,fill:"none",stroke:"var(--s7)","stroke-width":1.2}));
+  // completion
+  var defs=el("defs");var pat=el("pattern",{id:"hatch",width:5,height:5,patternUnits:"userSpaceOnUse",patternTransform:"rotate(45)"});pat.appendChild(el("rect",{width:2,height:5,fill:"var(--squeeze)"}));defs.appendChild(pat);log.appendChild(defs);
+  log.appendChild(el("rect",{x:X.comp[0]+18,y:T,width:8,height:H,fill:"var(--panel)",stroke:"var(--axis)"}));
+  comp.forEach(function(c){var r1=el("rect",{x:X.comp[0]+4,y:y(c.t),width:36,height:Math.max(3,y(c.b)-y(c.t)),rx:2,class:"hit",
+    fill:c.type=="open"?"var(--open)":c.type=="squeeze"?"url(#hatch)":"var(--squeeze)",stroke:c.type=="squeeze"?"var(--squeeze)":"none"});
+   hover(r1,"<b>"+c.name+"</b><br>"+fmt(c.t)+"-"+fmt(c.b)+" ft");log.appendChild(r1)});
+  // algorithm tracks
+  ["A","B","C"].forEach(function(a){algos[a].forEach(function(iv){var r2=el("rect",{x:X[a][0]+4,y:y(iv[0]),width:X[a][1]-X[a][0]-8,height:y(iv[1])-y(iv[0]),rx:3,fill:acol[a],class:"hit"});
+   hover(r2,"<b>Algorithm "+a+"</b><br>"+fmt(iv[0])+"-"+fmt(iv[1])+" ft");log.appendChild(r2)})});
+  // consensus (agreement count), job selection, flags
+  cand.forEach(function(c){var n=c.by.length;var yy=y(c.t),hh=y(c.b)-y(c.t);
+   var r3=el("rect",{x:X.cons[0]+4,y:yy,width:(X.cons[1]-X.cons[0]-8)*n/3,height:hh,rx:3,fill:"var(--accent)",opacity:c.bad?0.35:1,class:"hit"});
+   hover(r3,"<b>"+c.id+" · unit "+c.u+"</b><br>found by "+c.by.split("").join(", ")+" ("+n+" of 3)"+(c.bad?"<br>✕ "+c.bad:""));log.appendChild(r3);
+   log.appendChild(el("text",{x:X.cons[1]+2,y:yy+hh/2+3,class:"lbl"},c.id));
+   if(c.bad){log.appendChild(el("text",{x:X.job[0]+6,y:yy+hh/2+3,style:"fill:var(--critical)"},"✕ blocked"));return}
+   var on=!!sel[c.id];var b=el("rect",{x:X.job[0]+6,y:yy,width:X.job[1]-X.job[0]-12,height:hh,rx:3,class:"hit",fill:on?"var(--oil)":"transparent",stroke:"var(--oil)","stroke-width":1.5,"stroke-dasharray":on?null:"3 3"});
+   hover(b,"<b>"+c.id+"</b> "+(on?"in the job: click to remove":"click to add to the job"));b.addEventListener("click",function(){toggle(c.id)});log.appendChild(b);
+   log.appendChild(el("text",{x:(X.job[0]+X.job[1])/2,y:yy+hh/2+3,"text-anchor":"middle",style:on?"fill:var(--panel);font-weight:600":"fill:var(--ink-2)"},on?"ADPERF":"+ add"))});
+  offenders.forEach(function(o){var yy=y(o.t),hh=y(o.b)-y(o.t);var w=(X.off[1]-X.off[0]-34)*o.share;
+   var r4=el("rect",{x:X.off[0]+4,y:yy,width:w,height:hh,rx:3,fill:"var(--water)",class:"hit"});
+   hover(r4,"<b>Open "+o.name+"</b> "+fmt(o.t)+"-"+fmt(o.b)+" ft<br>"+Math.round(o.share*100)+" % of the well's water ("+fmt(o.qw)+" bwpd), "+o.qo+" bopd");log.appendChild(r4);
+   log.appendChild(el("text",{x:X.off[0]+8+w,y:yy+hh/2+3,class:"lbl"},(o.sev=="critical"?"▲ ":o.sev=="serious"?"● ":"")+Math.round(o.share*100)+"%"));
+   var on=!!iso[o.id];if(on){log.appendChild(el("rect",{x:X.job[0]+6,y:yy,width:X.job[1]-X.job[0]-12,height:hh,rx:3,fill:"var(--critical)"}));
+    log.appendChild(el("text",{x:(X.job[0]+X.job[1])/2,y:yy+hh/2+3,"text-anchor":"middle",style:"fill:#fff;font-weight:600"},"ISOLATE"))}});
+  log.appendChild(el("line",{x1:X.comp[0],x2:X.job[1],y1:y(5010),y2:y(5010),stroke:"var(--ink-2)","stroke-width":1.5}));
+  log.appendChild(el("text",{x:X.comp[0]+2,y:y(5010)-4,class:"lbl"},"plug"));
+ }
+ function toggle(id){if(sel[id])delete sel[id];else sel[id]=1;render()}
+ function toggleIso(id){if(iso[id])delete iso[id];else iso[id]=1;render()}
+
+ // ---- tables ----
+ function drawTables(){
+  var tb=document.querySelector("#cand tbody");tb.innerHTML="";
+  cand.forEach(function(c){var tr=document.createElement("tr");if(sel[c.id])tr.className="sel";if(c.bad)tr.className="bad";
+   var dots=["A","B","C"].map(function(a){return c.by.indexOf(a)>=0?'<i class="dot" style="background:'+acol[a]+'" title="'+a+'"></i>':'<i class="dot off" title="not '+a+'"></i>'}).join("");
+   tr.innerHTML='<td>'+(c.bad?'':'<input type="checkbox" aria-label="Add '+c.id+' to the job" '+(sel[c.id]?"checked":"")+'>')+'</td><td>'+c.id+'</td><td>'+fmt(c.t)+'-'+fmt(c.b)+'</td><td>'+c.u+'</td><td>'+dots+'</td><td class="n">'+fmt(c.kh)+'</td><td class="n">'+c.sw.toFixed(2)+'</td><td class="n">'+c.q.join(" / ")+'</td><td class="n">'+c.bsw+'</td><td>'+(c.bad?'<span class="flag">✕ '+c.bad+'</span>':(c.by.length==3?'<span class="flag w">✓ all three agree</span>':''))+'</td>';
+   var cb=tr.querySelector("input");if(cb)cb.addEventListener("change",function(){toggle(c.id)});tb.appendChild(tr)});
+  var to=document.querySelector("#off tbody");to.innerHTML="";
+  offenders.forEach(function(o){var tr=document.createElement("tr");if(iso[o.id])tr.className="sel";
+   tr.innerHTML='<td><input type="checkbox" aria-label="Isolate '+o.name+'" '+(iso[o.id]?"checked":"")+'></td><td>'+o.name+'</td><td>'+fmt(o.t)+'-'+fmt(o.b)+'</td><td class="n">'+Math.round(o.share*100)+' %</td><td class="n">'+fmt(o.qw)+'</td><td class="n">'+o.qo+'</td><td>'+(o.sev?'<span class="chip '+(o.sev=="critical"?"mi":"pa")+'">'+o.sev+'</span>':'')+'</td>';
+   tr.querySelector("input").addEventListener("change",function(){toggleIso(o.id)});to.appendChild(tr)});
+ }
+
+ // ---- job maths ----
+ function job(){
+  var ci=cand.filter(function(c){return sel[c.id]&&!c.bad}), oi=offenders.filter(function(o){return iso[o.id]});
+  var add=function(i){return ci.reduce(function(s,c){return s+c.q[i]},0)};
+  var b=add(1),lo,hi;
+  if(mode=="cor"){lo=add(0);hi=add(2)}else{lo=b-Math.sqrt(ci.reduce(function(s,c){return s+Math.pow(c.q[1]-c.q[0],2)},0));hi=b+Math.sqrt(ci.reduce(function(s,c){return s+Math.pow(c.q[2]-c.q[1],2)},0))}
+  var wadd=ci.reduce(function(s,c){return s+c.q[1]*c.bsw/(100-c.bsw)},0);
+  var oloss=oi.reduce(function(s,o){return s+o.qo},0),wloss=oi.reduce(function(s,o){return s+o.qw},0);
+  return {ci:ci,oi:oi,lo:lo,b:b,hi:hi,wadd:wadd,oloss:oloss,wloss:wloss,qo:now.qo+b-oloss,qw:now.qw+wadd-wloss}
+ }
+ function np12(q){var s=0;for(var t=0;t<12;t++)s+=q/Math.pow(1+0.5*0.045*t,2)*30.44;return s}
+
+ function waterfall(svg,steps,colUp,colDown){
+  clear(svg);var L=48,R=510,Tt=12,B=180;var vals=[],run=0,max=0;
+  steps.forEach(function(s,i){if(s.total){vals.push([0,s.v]);run=s.v}else{vals.push([run,run+s.v]);run+=s.v}max=Math.max(max,vals[i][0],vals[i][1])});
+  max*=1.12;function yy(v){return B-v/max*(B-Tt)}var bw=(R-L)/steps.length;
+  var tick=Math.pow(10,Math.floor(Math.log10(max)));if(max/tick<3)tick/=2;
+  for(var v=0;v<=max;v+=tick){svg.appendChild(el("line",{x1:L,x2:R,y1:yy(v),y2:yy(v),stroke:"var(--grid)"}));svg.appendChild(el("text",{x:L-6,y:yy(v)+3,"text-anchor":"end"},fmt(v)))}
+  steps.forEach(function(s,i){var a=vals[i],x=L+i*bw+bw*0.18,w=bw*0.64;var top=yy(Math.max(a[0],a[1])),h=Math.max(2,Math.abs(yy(a[0])-yy(a[1])));
+   var c=s.total?"var(--ink-2)":(s.v>=0?colUp:colDown);
+   var r=el("rect",{x:x,y:top,width:w,height:h,rx:2,fill:c,class:"hit"});hover(r,"<b>"+s.l+"</b><br>"+(s.total?"":(s.v>=0?"+":""))+fmt(s.v));svg.appendChild(r);
+   svg.appendChild(el("text",{x:x+w/2,y:top-4,"text-anchor":"middle",class:"lbl"},(s.total?"":(s.v>=0?"+":""))+fmt(s.v)));
+   svg.appendChild(el("text",{x:x+w/2,y:B+14,"text-anchor":"middle"},s.l));
+   if(i<steps.length-1&&!steps[i+1].total){svg.appendChild(el("line",{x1:x+w,x2:x+bw,y1:yy(a[1]),y2:yy(a[1]),stroke:"var(--axis)","stroke-dasharray":"2 2"}))}});
+  svg.appendChild(el("line",{x1:L,x2:R,y1:B,y2:B,stroke:"var(--axis)"}));
+ }
+
+ function drawJob(){
+  var j=job();
+  document.getElementById("jobname").textContent="Job proposal · CIRA1001 · "+j.ci.length+" ADPERF"+(j.oi.length?" + "+j.oi.length+" isolation":"")+" + ESP change";
+  var k=document.getElementById("jk");
+  var liq=j.qo+j.qw;
+  k.innerHTML='<div class="kpi"><small>Incremental oil, initial</small><b>'+fmt(j.lo)+' / '+fmt(j.b)+' / '+fmt(j.hi)+'</b><span>bopd, Bajo / Base / Alto ('+(mode=="cor"?"correlated":"independent")+')</span></div>'+
+   '<div class="kpi"><small>Oil 12 m, Base</small><b>'+fmt(np12(j.b)-j.oloss*365*0.95)+'</b><span>stb, net of isolated oil</span></div>'+
+   '<div class="kpi"><small>Water after job</small><b>'+fmt(j.qw)+'</b><span>bwpd ('+(j.qw<now.qw?"−":"+")+fmt(Math.abs(j.qw-now.qw))+')</span></div>'+
+   '<div class="kpi"><small>Liquid after job</small><b>'+fmt(liq)+'</b><span>bfpd vs ESP 3,200</span></div>';
+  var so=[{l:"Now",v:now.qo,total:1}];j.ci.forEach(function(c){so.push({l:"+"+c.id,v:c.q[1]})});j.oi.forEach(function(o){so.push({l:"−"+o.name,v:-o.qo})});so.push({l:"Job",v:j.qo,total:1});
+  waterfall(document.getElementById("wf-oil"),so,"var(--oil)","var(--s2)");
+  var sw=[{l:"Now",v:now.qw,total:1}];j.ci.forEach(function(c){sw.push({l:"+"+c.id,v:c.q[1]*c.bsw/(100-c.bsw)})});j.oi.forEach(function(o){sw.push({l:"−"+o.name,v:-o.qw})});sw.push({l:"Job",v:j.qw,total:1});
+  waterfall(document.getElementById("wf-wat"),sw,"var(--water)","var(--s2)");
+  drawFan(j);drawLift(liq);
+ }
+ function drawFan(j){
+  var s=document.getElementById("fan");clear(s);var L=44,R=500,Tt=12,B=180;var M=24;var max=Math.max(60,j.hi*1.1);
+  function xx(t){return L+(t-1)/(M-1)*(R-L)}function yy(v){return B-v/max*(B-Tt)}
+  var tick=max>400?100:50;for(var v=0;v<=max;v+=tick){s.appendChild(el("line",{x1:L,x2:R,y1:yy(v),y2:yy(v),stroke:"var(--grid)"}));s.appendChild(el("text",{x:L-6,y:yy(v)+3,"text-anchor":"end"},v))}
+  [1,6,12,18,24].forEach(function(t){s.appendChild(el("text",{x:xx(t),y:B+14,"text-anchor":"middle"},t))});s.appendChild(el("text",{x:R,y:B+28,"text-anchor":"end"},"month after the job"));
+  function dec(q,t){return q/Math.pow(1+0.5*0.045*(t-1),2)}
+  var up="",lo="",bs="";for(var t=1;t<=M;t++){up+=(t==1?"M":"L")+xx(t)+","+yy(dec(j.hi,t));bs+=(t==1?"M":"L")+xx(t)+","+yy(dec(j.b,t))}
+  for(var t2=M;t2>=1;t2--)lo+="L"+xx(t2)+","+yy(dec(j.lo,t2));
+  s.appendChild(el("path",{d:up+lo+"Z",fill:"var(--accent-soft)"}));
+  s.appendChild(el("path",{d:bs,fill:"none",stroke:"var(--oil)","stroke-width":2}));
+  s.appendChild(el("text",{x:xx(24)-2,y:yy(dec(j.b,24))-6,"text-anchor":"end",class:"lbl"},"Base"));
+  s.appendChild(el("text",{x:xx(2),y:yy(dec(j.hi,2))-6,class:"lbl"},"Alto "+fmt(j.hi)));
+  s.appendChild(el("text",{x:xx(2),y:yy(dec(j.lo,2))+14,class:"lbl"},"Bajo "+fmt(j.lo)));
+  var hit=el("rect",{x:L,y:Tt,width:R-L,height:B-Tt,fill:"transparent"});var cross=el("line",{y1:Tt,y2:B,stroke:"var(--axis)",visibility:"hidden"});s.appendChild(cross);
+  hit.addEventListener("mousemove",function(e){var p=s.createSVGPoint();p.x=e.clientX;p.y=e.clientY;var q=p.matrixTransform(s.getScreenCTM().inverse());var t=Math.max(1,Math.min(M,Math.round(1+(q.x-L)/(R-L)*(M-1))));
+   cross.setAttribute("x1",xx(t));cross.setAttribute("x2",xx(t));cross.setAttribute("visibility","visible");
+   tipOn(e,"<b>Month "+t+"</b><br>Bajo "+fmt(dec(j.lo,t))+" · Base "+fmt(dec(j.b,t))+" · Alto "+fmt(dec(j.hi,t))+" bopd")});
+  hit.addEventListener("mouseleave",function(){cross.setAttribute("visibility","hidden");tipOff()});s.appendChild(hit);
+ }
+ function drawLift(liq){
+  var s=document.getElementById("lift");clear(s);
+  function gauge(y0,label,val,cap,unit,warnAt,note){var L=150,R=500,max=cap*1.25;var x=function(v){return L+Math.min(v,max)/max*(R-L)};
+   s.appendChild(el("text",{x:0,y:y0+14,class:"lbl"},label));
+   s.appendChild(el("rect",{x:L,y:y0,width:R-L,height:20,rx:4,fill:"var(--panel)",stroke:"var(--rule)"}));
+   var crit=val>=warnAt;s.appendChild(el("rect",{x:L,y:y0,width:x(val)-L,height:20,rx:4,fill:crit?"var(--critical)":"var(--accent)"}));
+   s.appendChild(el("line",{x1:x(cap),x2:x(cap),y1:y0-5,y2:y0+25,stroke:"var(--ink)","stroke-width":1.5}));
+   s.appendChild(el("text",{x:x(cap),y:y0-8,"text-anchor":"middle"},"limit "+fmt(cap)));
+   s.appendChild(el("text",{x:L,y:y0+38,class:"lbl"},(crit?"✕ ":"✓ ")+fmt(val)+" "+unit+" · "+note))}
+  gauge(28,"Liquid after job",liq,3200,"bfpd",3200,liq>=3200?"above ESP capacity: resize":"within ESP capacity");
+  gauge(118,"ESP run life",687,700,"days",630,"98 % of expected life: replace in this rig visit");
+ }
+
+ // ---- portfolio ----
+ var jobs=[
+  {id:"J1",w:"CIRA1001",c:"3 ADPERF + ISO + ESP",oil:82000,cost:.9,ps:.75,unc:1.15,trig:"ESP run life 98 %"},
+  {id:"J2",w:"SAT-01",c:"2 ADPERF",oil:72000,cost:.35,ps:.8,unc:1.2,trig:""},
+  {id:"J3",w:"PRD-12",c:"ADPERF + WSO",oil:40000,cost:.5,ps:.7,unc:.9,trig:""},
+  {id:"J4",w:"INJ-13",c:"Injector stimulation",oil:30000,cost:.25,ps:.6,unc:1.4,trig:""},
+  {id:"J5",w:"SAT-05",c:"Reactivate",oil:9000,cost:.15,ps:.9,unc:.5,trig:"Well down"},
+  {id:"J6",w:"PRD-13",c:"ADPERF",oil:35000,cost:.3,ps:.65,unc:1.3,trig:""},
+  {id:"J7",w:"PRD-09",c:"Lift resize",oil:18000,cost:.2,ps:.85,unc:.6,trig:"Pump failure predicted"},
+  {id:"J8",w:"SAT-06",c:"ADPERF",oil:32000,cost:.3,ps:.7,unc:1.1,trig:""}];
+ jobs.forEach(function(j){j.risk=j.oil*j.ps});
+ var eff=jobs.map(function(j){return j.risk/j.cost}),emax=Math.max.apply(null,eff);
+ jobs.forEach(function(j,i){j.score=Math.round(Math.max(0,100*eff[i]/emax*(1+(j.trig?0.25:0))-10*j.unc))});
+ var rank=jobs.slice().sort(function(a,b){return b.score-a.score});
+ function drawPortfolio(){
+  var s=document.getElementById("pfplot");clear(s);var L=56,R=505,Tt=14,B=290;var xmax=70000,ymax=1.6;
+  function xx(v){return L+v/xmax*(R-L)}function yy(v){return B-v/ymax*(B-Tt)}
+  for(var v=0;v<=xmax;v+=10000){s.appendChild(el("line",{x1:xx(v),x2:xx(v),y1:Tt,y2:B,stroke:"var(--grid)"}));s.appendChild(el("text",{x:xx(v),y:B+14,"text-anchor":"middle"},v/1000+"k"))}
+  for(var u=0;u<=ymax+1e-9;u+=0.4){s.appendChild(el("line",{x1:L,x2:R,y1:yy(u),y2:yy(u),stroke:"var(--grid)"}));s.appendChild(el("text",{x:L-6,y:yy(u)+3,"text-anchor":"end"},u.toFixed(1)))}
+  s.appendChild(el("text",{x:(L+R)/2,y:B+30,"text-anchor":"middle"},"risked oil in 12 months, stb (P(success) × Base)"));
+  s.appendChild(el("text",{x:12,y:(Tt+B)/2,"text-anchor":"middle",transform:"rotate(-90 12 "+(Tt+B)/2+")"},"(Alto − Bajo) / Base"));
+  jobs.forEach(function(j){var r=6+Math.sqrt(j.cost)*14;var c=el("circle",{cx:xx(j.risk),cy:yy(j.unc),r:r,fill:j.trig?"var(--s2)":"var(--s1)",opacity:.85,stroke:"var(--panel)","stroke-width":2,class:"hit"});
+   hover(c,"<b>"+j.id+" · "+j.w+"</b><br>"+j.c+"<br>risked oil "+fmt(j.risk)+" stb · cost "+j.cost+" MUSD · P(success) "+j.ps+(j.trig?"<br>trigger: "+j.trig:""));s.appendChild(c);
+   s.appendChild(el("text",{x:xx(j.risk)+r+3,y:yy(j.unc)+3,class:"lbl"},j.id))});
+  var tb=document.querySelector("#pftab tbody");tb.innerHTML="";
+  rank.forEach(function(j,i){var tr=document.createElement("tr");if(j.id=="J1")tr.className="sel";
+   tr.innerHTML='<td class="n">'+(i+1)+'</td><td><b>'+j.id+'</b> '+j.w+'</td><td>'+j.c+'</td><td class="n">'+fmt(j.risk)+'</td><td class="n">'+j.cost.toFixed(2)+'</td><td class="n">'+j.ps.toFixed(2)+'</td><td>'+(j.trig?'<span class="chip pa">'+j.trig+'</span>':'planned')+'</td><td class="n"><b>'+j.score+'</b></td>';tb.appendChild(tr)});
+ }
+
+ // ---- pipeline ----
+ function drawPipe(){
+  var st=[["Proposed",["J4","J6","J8"]],["Technical review",["J3","J2"]],["Approved",["J1"]],["Scheduled",["J7","J5"]],["Executed",["JOB-PRD07-2608"]],["Evaluated",["JOB-PRD11-2501"]]];
+  var info={"JOB-PRD07-2608":{w:"PRD-07",c:"ADPERF B INT001",m:"Aug 2026 · 2 months of data"},"JOB-PRD11-2501":{w:"PRD-11",c:"ADPERF D",m:"Jun 2025 · within range (0.86 of Base)"}};
+  var p=document.getElementById("pipe");p.innerHTML="";
+  st.forEach(function(s){var d=document.createElement("div");d.className="col";d.innerHTML="<h5><span>"+s[0]+"</span><span>"+s[1].length+"</span></h5>";
+   s[1].forEach(function(id){var j=jobs.filter(function(x){return x.id==id})[0];var c=document.createElement("div");c.className="jc";
+    if(j)c.innerHTML="<b>"+j.id+" · "+j.w+"</b><br>"+j.c+"<br><span class='m'>score "+j.score+(j.trig?" · "+j.trig:"")+"</span>";
+    else c.innerHTML="<b>"+info[id].w+"</b><br>"+info[id].c+"<br><span class='m'>"+info[id].m+"</span>";
+    d.appendChild(c)});p.appendChild(d)});
+ }
+ function drawTrack(){
+  var s=document.getElementById("track");clear(s);var L=50,R=985,Tt=12,B=190,M=15;
+  function xx(t){return L+(t-1)/(M-1)*(R-L)}var max=110;function yy(v){return B-v/max*(B-Tt)}
+  for(var v=0;v<=100;v+=25){s.appendChild(el("line",{x1:L,x2:R,y1:yy(v),y2:yy(v),stroke:"var(--grid)"}));s.appendChild(el("text",{x:L-6,y:yy(v)+3,"text-anchor":"end"},v))}
+  for(var t=1;t<=M;t+=2)s.appendChild(el("text",{x:xx(t),y:B+14,"text-anchor":"middle"},t));
+  s.appendChild(el("text",{x:R,y:B+30,"text-anchor":"end"},"month after the job · bopd"));
+  function dec(q,t){return q/Math.pow(1+0.5*0.05*(t-1),2)}
+  var up="",lo="",bs="",ac="";var act=[58,61,55,57,52,50,51,47,46,45,43,42,41,40];
+  for(var i=1;i<=M;i++){up+=(i==1?"M":"L")+xx(i)+","+yy(dec(90,i));bs+=(i==1?"M":"L")+xx(i)+","+yy(dec(60,i))}
+  for(var k=M;k>=1;k--)lo+="L"+xx(k)+","+yy(dec(25,k));
+  act.forEach(function(v,i){ac+=(i==0?"M":"L")+xx(i+1)+","+yy(v)});
+  s.appendChild(el("path",{d:up+lo+"Z",fill:"var(--accent-soft)"}));
+  s.appendChild(el("path",{d:bs,fill:"none",stroke:"var(--oil)","stroke-width":2,"stroke-dasharray":"5 4"}));
+  s.appendChild(el("path",{d:ac,fill:"none",stroke:"var(--s2)","stroke-width":2}));
+  act.forEach(function(v,i){var c=el("circle",{cx:xx(i+1),cy:yy(v),r:4,fill:"var(--s2)",stroke:"var(--panel)","stroke-width":2,class:"hit"});hover(c,"<b>Month "+(i+1)+"</b><br>actual "+v+" bopd · Base "+Math.round(dec(60,i+1))+" · Bajo "+Math.round(dec(25,i+1))+" · Alto "+Math.round(dec(90,i+1)));s.appendChild(c)});
+  s.appendChild(el("text",{x:xx(12),y:yy(42)-12,"text-anchor":"middle",class:"lbl"},"actual"));
+  s.appendChild(el("text",{x:xx(15),y:yy(dec(60,15))+16,"text-anchor":"end",class:"lbl"},"Base (frozen)"));
+  s.appendChild(el("text",{x:xx(15),y:yy(dec(90,15))-8,"text-anchor":"end",class:"lbl"},"Alto"));
+  s.appendChild(el("text",{x:xx(15),y:yy(dec(25,15))+14,"text-anchor":"end",class:"lbl"},"Bajo"));
+ }
+
+ function render(){drawLog();drawTables();drawJob()}
+ document.getElementById("u-cor").addEventListener("click",function(){mode="cor";this.setAttribute("aria-pressed","true");document.getElementById("u-ind").setAttribute("aria-pressed","false");drawJob()});
+ document.getElementById("u-ind").addEventListener("click",function(){mode="ind";this.setAttribute("aria-pressed","true");document.getElementById("u-cor").setAttribute("aria-pressed","false");drawJob()});
+ render();drawPortfolio();drawPipe();drawTrack();
+})();
+</script>
