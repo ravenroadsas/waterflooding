@@ -189,3 +189,33 @@ test_that("engineers propose, a lead approves, and only allowed transitions happ
   expect_true(all(s[!key %in% k, as.character(status)] == s[!key %in% k, auto_status]))
   expect_equal(store_job_history(con, id)$to_status, c("proposed", "approved", "executed"))
 })
+
+test_that("opportunity flow: screening -> candidate -> in a job -> executed, dismissed aside", {
+  con <- store_open(tempfile(fileext = ".sqlite")); on.exit(DBI::dbDisconnect(con))
+  s0 <- demo$op$summary
+  scr <- s0[auto_status == "screening_only", key][1]
+  store_set_state(con, scr, status = "candidate", comment = "promoted: offset well responded")
+  store_set_state(con, "ADPERF|SAT-01|D|INT006", status = "dismissed", comment = "thin")
+  k <- c("ADPERF|SAT-01|B|INT001", "WSO|SAT-01|A|A3")
+  id <- job_propose(con, demo$op, k, demo$res, max(demo$res$months), default_settings, "eng1")
+  st <- function() apply_states(s0, store_states(con), store_job_map(con))
+  s <- st()
+  expect_equal(as.character(s[key == scr, status]), "candidate")
+  expect_equal(as.character(s[key == "ADPERF|SAT-01|D|INT006", status]), "dismissed")
+  expect_true(all(s[key %in% k, status] == "in_job")); expect_true(all(s[key %in% k, job_id] == id))
+  expect_equal(as.character(s[key == "ADPERF|SAT-01|A|INT003", status]), "candidate")      # not picked: stays identified
+  job_set_status(con, id, "rejected", "lead", "not now", demo$op, demo$res)
+  expect_true(all(st()[key %in% k, status] == "candidate"))                                  # a rejected job releases them
+  job_set_status(con, id, "proposed", "eng1", "again", demo$op, demo$res)
+  job_set_status(con, id, "approved", "lead", "go", demo$op, demo$res)
+  job_set_status(con, id, "executed", "eng1", "", demo$op, demo$res, as.Date("2026-08-01"))
+  expect_true(all(st()[key %in% k, status] == "executed"))
+  expect_setequal(levels(s$status), c("screening_only", "candidate", "in_job", "executed", "dismissed"))
+})
+
+test_that("trigger scan flags the wells to intervene at once", {
+  t <- all_triggers(demo$res, max(demo$res$months), default_settings)
+  expect_true(any(t$well == "SAT-01" & grepl("ESP run life", t$trigger)))
+  expect_true(any(t$well == "SAT-05" & t$trigger == "well down"))
+  expect_true(any(t$well == "PRD-09" & grepl("failures", t$trigger)))
+})

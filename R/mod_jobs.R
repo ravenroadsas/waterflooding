@@ -3,12 +3,12 @@
 jobs_ui <- function() {
   htmltools::tagList(
     htmltools::div(class = "wf-section-intro",
-      htmltools::div(class = "wf-step", "Step 4 of 4"), htmltools::h2("Jobs"),
-      htmltools::p("A job is one rig visit on one well, combining the opportunities an engineer picked. Engineers propose, a lead approves;",
-                   "the forecast is frozen at approval and the executed job is evaluated against it."),
+      htmltools::div(class = "wf-step", "Step 5 of 5 · engineer and lead"), htmltools::h2("Manage jobs"),
+      htmltools::p("A job is one rig visit on one well, combining the candidates an engineer picked. Engineers propose, a lead approves;",
+                   "the forecast is frozen at approval and the executed job is evaluated against it (the well's response to the whole job)."),
       htmltools::div(class = "wf-inline-tools", shiny::textInput("job_user", "Acting as", Sys.getenv("USER", "engineer"), width = "200px"),
                      shiny::uiOutput("job_role", inline = TRUE))),
-    shiny::uiOutput("job_funnel"),
+    shiny::uiOutput("job_value"),
     bslib::layout_columns(col_widths = c(6, 6),
       bslib::navset_card_underline(id = "job_tabs",
         bslib::nav_panel("Portfolio", value = "pf",
@@ -42,11 +42,31 @@ jobs_server <- function(input, output, session, ctx) {
     score_jobs(x, ctx$settings())
   })
 
-  output$job_funnel <- shiny::renderUI({
-    j <- jobs()
-    n <- table(factor(j$status, job_status_levels))
-    htmltools::div(class = "wf-funnel", lapply(job_status_levels[1:5], function(k) htmltools::div(class = "wf-fs", style = sprintf("--fc:%s", job_status_colors[[k]]),
-      htmltools::div(class = "l", k), htmltools::tags$b(n[[k]]))))
+  # ---- value per status: expected (risked) oil for open jobs, delivered oil for executed ones ----
+  delivered <- shiny::reactive({
+    j <- jobs(); j <- if (nrow(j)) j[status %in% c("executed", "evaluated")] else j
+    if (!nrow(j)) return(data.table::data.table(id = integer(), delivered = numeric(), months = integer()))
+    data.table::rbindlist(lapply(j$id, function(i) { e <- job_evaluate(ctx$con, ctx$res(), i, ctx$asof())$eval
+      data.table::data.table(id = i, delivered = if (is.null(e)) 0 else sum(e$inc_qo, na.rm = TRUE) * days_per_month, months = if (is.null(e)) 0L else nrow(e)) }))
+  })
+  output$job_value <- shiny::renderUI({
+    x <- pf()
+    cards <- lapply(job_status_levels[1:5], function(k) {
+      d <- if (nrow(x)) x[status == k] else x
+      n <- nrow(d); cost <- if (n) sum(d$cost_usd, na.rm = TRUE) else 0
+      main <- if (k %in% c("executed", "evaluated")) {
+        dv <- delivered()[id %in% d$id]
+        list(v = fmt_num(sum(dv$delivered)), s = sprintf("stb delivered to date · forecast %s", fmt_num(sum(d$np12, na.rm = TRUE))))
+      } else if (k == "rejected") list(v = fmt_num(sum(d$risked_np12, na.rm = TRUE)), s = "stb risked, not pursued")
+      else list(v = fmt_num(sum(d$risked_np12, na.rm = TRUE)), s = "stb risked oil in 12 months")
+      htmltools::div(class = "wf-val-card", style = sprintf("--fc:%s", job_status_colors[[k]]),
+        htmltools::div(class = "l", sprintf("%s · %d job%s", k, n, if (n == 1) "" else "s")),
+        htmltools::tags$b(main$v), htmltools::span(class = "s", main$s),
+        htmltools::span(class = "s", sprintf("cost %s k USD", fmt_num(cost / 1000))))
+    })
+    htmltools::div(htmltools::div(class = "wf-val-row", cards),
+      htmltools::div(class = "wf-muted small", if (econ_available()) "Values in volumes; the economic function is plugged in for opportunities." else
+        "Values in oil volumes until the economic function is plugged in (WF_ECON_FILE)."))
   })
 
   open_pf <- shiny::reactive({ x <- pf(); if (!nrow(x)) x else x[status %in% c("proposed", "approved")][order(-score)] })
@@ -87,6 +107,7 @@ jobs_server <- function(input, output, session, ctx) {
   })
   shiny::observeEvent(input$job_pick, sel_job(as.integer(input$job_pick)))
   # a newly proposed job comes into focus (also the first time the page opens)
+  shiny::observeEvent(ctx$job_focus(), { if (!is.null(ctx$job_focus())) sel_job(as.integer(ctx$job_focus())) }, ignoreInit = TRUE)
   last_max <- shiny::reactiveVal(0)
   shiny::observeEvent(jobs(), { j <- jobs(); if (!nrow(j)) return(); m <- max(j$id); if (m > last_max()) { sel_job(m); last_max(m) } })
 
@@ -165,10 +186,9 @@ jobs_server <- function(input, output, session, ctx) {
   shiny::observeEvent(input$job_exec, act("executed", input$job_date))
   shiny::observeEvent(input$job_eval, {
     j <- cur(); v <- evaluation()$verdict; shiny::req(j, v)
-    for (k in store_job_items(ctx$con, j$id)$opp_key) {
+    # the job is evaluated as a whole; each of its opportunities inherits the verdict (P(success) per job type)
+    for (k in store_job_items(ctx$con, j$id)$opp_key)
       store_add_outcome(ctx$con, k, v$verdict, "frozen job forecast", sprintf("actual / Base %s", fmtn(v$ratio)), j$name)
-      store_set_state(ctx$con, k, status = "outcome_evaluated", user = ctx$user(), comment = paste(v$verdict, "·", j$name))
-    }
     act("evaluated")
   })
   shiny::observeEvent(input$job_w360, { j <- cur(); if (!is.null(j)) ctx$open_w360(j$well) })

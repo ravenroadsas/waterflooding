@@ -124,3 +124,11 @@ store_job_update <- function(con, id, to, user, comment = "", date = NULL) {
   if (to == "executed" && !is.null(date)) DBI::dbExecute(con, "UPDATE jobs SET exec_date = ? WHERE id = ?", params = list(format(as.Date(date)), id))
   DBI::dbExecute(con, "INSERT INTO job_history VALUES (?, ?, ?, ?, ?, ?)", params = list(id, now_txt(), old$status, to, user, comment))
 }
+
+# Latest live job (not rejected or cancelled) of each opportunity.
+store_job_map <- function(con) {
+  x <- data.table::as.data.table(DBI::dbGetQuery(con, paste("SELECT i.opp_key, j.id AS job_id, j.status AS job_status FROM job_items i JOIN jobs j ON j.id = i.job_id",
+                                                          "WHERE j.status NOT IN ('rejected', 'cancelled') ORDER BY j.id")))
+  if (!nrow(x)) return(x)
+  x[, .SD[.N], by = opp_key]
+}

@@ -40,8 +40,9 @@ ui <- page_navbar(
     div(class = "wf-side-foot", uiOutput("dataset_label"))),
   nav_panel(tags$span(tags$i(class = "wf-n", "1"), "Maturity"), value = "maturity", maturity_ui()),
   nav_panel(tags$span(tags$i(class = "wf-n", "2"), "Process velocity"), value = "velocity", velocity_ui()),
-  nav_panel(tags$span(tags$i(class = "wf-n", "3"), "Opportunities"), value = "opportunities", opportunities_ui()),
-  nav_panel(tags$span(tags$i(class = "wf-n", "4"), "Jobs"), value = "jobs", jobs_ui()),
+  nav_panel(tags$span(tags$i(class = "wf-n", "3"), "Identified opportunities"), value = "identify", identify_ui()),
+  nav_panel(tags$span(tags$i(class = "wf-n", "4"), "Manage opportunities"), value = "opportunities", opportunities_ui()),
+  nav_panel(tags$span(tags$i(class = "wf-n", "5"), "Manage jobs"), value = "jobs", jobs_ui()),
   nav_spacer(),
   nav_menu("Data & reference", icon = icon("database"), align = "right",
     nav_panel("Data", value = "data", data_ui()),
@@ -119,7 +120,7 @@ server <- function(input, output, session) {
                   error = function(e) { showNotification(paste("Opportunity rules:", conditionMessage(e)), type = "error"); list(summary = data.table(), records = list()) })
     if (isTRUE(store_migrate_keys(con, o$summary) > 0)) showNotification("Decisions stored under v2 pattern keys moved to their well targets")
     if (identical(rv$ds$name, "demo") && !nrow(store_jobs(con))) isolate(seed_demo_jobs(con, o, res(), asof(), settings()))
-    o$summary <- apply_states(o$summary, store_states(con))
+    o$summary <- apply_states(o$summary, store_states(con), store_job_map(con))
     o
   })
 
@@ -150,7 +151,8 @@ server <- function(input, output, session) {
 
   ctx <- list(ds = reactive(rv$ds), res = res, asof = asof, series = series, series_all = series_all, scope_series = scope_series,
               snap = snap, ml = ml, units_snap = units_snap, opps = opps, settings = settings, sands = reactive(input$sands),
-              color_by = reactive(input$color_by %||% "util"), focus = focus, sel_opp = sel_opp, open_p360 = open_p360, open_opp = open_opp, open_w360 = open_w360, job_req = job_req,
+              color_by = reactive(input$color_by %||% "util"), focus = focus, sel_opp = sel_opp, open_p360 = open_p360, open_opp = open_opp, open_w360 = open_w360, job_req = job_req, job_focus = reactiveVal(NULL),
+              triggers = reactive({ r <- res(); req(r); all_triggers(r, asof(), settings()) }),
               user = reactive({ u <- session$user %||% input$job_user %||% ""; if (nzchar(u)) u else Sys.getenv("USER", "engineer") }),
               con = con, store_tick = store_tick, proto_tick = proto_tick)
 
@@ -165,10 +167,13 @@ server <- function(input, output, session) {
   output$side_signals <- renderUI({
     s <- opps()$summary
     n <- if (nrow(s)) table(factor(as.character(s$status), status_levels)) else setNames(rep(0, length(status_levels)), status_levels)
-    div(class = "wf-side-alerts", lapply(c("screening_only", "candidate", "validated_candidate", "executed"), function(k)
-      actionLink(paste0("side_", k), label = tagList(span(class = "n", n[[k]]), span(gsub("_", " ", k))), class = "wf-alert-pill", style = sprintf("--c:%s", status_colors[[k]]))))
+    nt <- length(unique(ctx$triggers()$well))
+    div(class = "wf-side-alerts", lapply(c("screening_only", "candidate", "in_job", "executed"), function(k)
+      actionLink(paste0("side_", k), label = tagList(span(class = "n", n[[k]]), span(status_labels[[k]])), class = "wf-alert-pill", style = sprintf("--c:%s", status_colors[[k]]))),
+      actionLink("side_trig", label = tagList(span(class = "n", nt), span("⚑ wells triggered")), class = "wf-alert-pill", style = "--c:#f87171"))
   })
-  for (k in status_levels) local({ kk <- k; observeEvent(input[[paste0("side_", kk)]], { nav_select("nav", "opportunities") }, ignoreInit = TRUE) })
+  for (k in status_levels) local({ kk <- k; observeEvent(input[[paste0("side_", kk)]], { nav_select("nav", "opportunities"); nav_select("opp_tabs", "board") }, ignoreInit = TRUE) })
+  observeEvent(input$side_trig, { nav_select("nav", "opportunities"); nav_select("opp_tabs", "trig") }, ignoreInit = TRUE)
 
   maturity_server(input, output, session, ctx)
   velocity_server(input, output, session, ctx)

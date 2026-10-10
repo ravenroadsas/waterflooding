@@ -180,3 +180,18 @@ table.dataTable td { border-top: 1px solid #172238 !important; }
 .modal .wf-kpi-row.compact .wf-kpi-value { font-size: .95rem; white-space: normal; overflow: visible; }
 #wb_kpis .wf-kpi-value, #job_detail .wf-kpi-value { white-space: normal; overflow: visible; font-size: .95rem; }
 #wb_kpis .wf-kpi-row.compact { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+/* v3 process: identified summary, triggers, job value */
+.wf-id-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .5rem; margin: .4rem 0 .8rem; }
+.wf-id-card { background: var(--wf-panel); border: 1px solid var(--wf-line); border-left: 3px solid var(--lc, #334155); border-radius: 10px; padding: .5rem .7rem; display: grid; gap: 2px; }
+.wf-id-card .l { font-size: .74rem; color: var(--wf-muted); line-height: 1.25; }
+.wf-id-card b { font-size: 1.25rem; }
+.wf-id-card.go { border-left-color: var(--wf-accent, #22d3ee); }
+.wf-id-card.go a { text-decoration: none; display: grid; gap: 2px; }
+.wf-trig { color: #f87171; font-weight: 700; }
+.wf-trig-n { display: inline-block; margin-left: .35rem; min-width: 1.3em; padding: 0 .35em; border-radius: 9px; background: #f87171; color: #0b1220; font-size: .72rem; font-weight: 700; text-align: center; }
+.wf-val-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .5rem; margin: .4rem 0 .3rem; }
+.wf-val-card { background: var(--wf-panel); border: 1px solid var(--wf-line); border-top: 3px solid var(--fc); border-radius: 10px; padding: .55rem .7rem; display: grid; gap: 2px; min-width: 0; }
+.wf-val-card .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--wf-muted); }
+.wf-val-card b { font-size: 1.3rem; color: #f1f5f9; }
+.wf-val-card .s { font-size: .75rem; color: var(--wf-muted); }
+@media (max-width: 900px) { .wf-val-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -15,7 +15,7 @@ ai_system_prompt <- paste(
   "The field may be on primary: then say that injection evidence does not apply.",
   "Treat surveillance as evidence aggregation: a single anomalous plot is a screening signal, not a recommendation.",
   "Using only the evidence provided, draft a decision record with these sections, in this order:",
-  "1. Assessment (state the evidence status: screening_only, candidate or validated_candidate, and why);",
+  "1. Assessment (state the evidence status: screening (one family of evidence) or candidate (two or more, including maturity or velocity), and why);",
   "2. Maturity evidence; 3. Process-velocity / balance evidence; 4. Vertical and spatial context;",
   "5. Most plausible physical mechanism; 6. Alternative explanations; 7. Data gaps;",
   "8. Validation required before execution; 9. Proposed action; 10. Expected observable response and time window.",

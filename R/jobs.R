@@ -9,6 +9,8 @@
 # Cost = standard cost lookup by job type and well depth (rig visit + one cost per item).
 
 job_status_levels <- c("proposed", "approved", "executed", "evaluated", "rejected", "cancelled")
+# Only candidates go into a job; screening opportunities are promoted first.
+jobable_statuses <- "candidate"
 job_status_colors <- c(proposed = "#fbbf24", approved = "#34d399", executed = "#a78bfa", evaluated = "#e2e8f0", rejected = "#64748b", cancelled = "#64748b")
 
 default_job_costs <- data.table::data.table(
@@ -172,3 +174,18 @@ job_evaluate <- function(con, res, id, asof) {
   ev <- evaluate_well_job(res, j$well, as.Date(j$exec_date), store_frozen(con, paste0("JOB:", id)), asof)
   list(eval = ev, verdict = job_verdict(ev))
 }
+
+# Trigger scan of every well with lift data or production: one row per well and trigger.
+all_triggers <- function(res, asof, st) {
+  ds <- res$ds
+  wells <- unique(c(ds$lift_status$well, res$well_master[well_type == "PRODUCER", well]))
+  wells <- intersect(wells, unique(res$well$well))
+  x <- data.table::rbindlist(lapply(wells, function(w) { t <- job_triggers(ds, res, w, asof, st); if (length(t)) data.table::data.table(well = w, trigger = t) }))
+  if (!nrow(x)) data.table::data.table(well = character(), trigger = character()) else x
+}
+
+trigger_rules <- function(st) data.table::data.table(
+  Rule = c("Lift near the end of its run life", "Repeated lift failures", "Well down"),
+  Condition = c(sprintf("run life used >= %s %% (install date and expected run life from CDF)", round(100 * st$runlife_trigger)),
+                "2 or more failures in the last 12 months (CDF)", sprintf("no production for %d months", st$shutin_months)),
+  Effect = "the well's open opportunities are flagged; a job built on the well gets the opportunity bonus")

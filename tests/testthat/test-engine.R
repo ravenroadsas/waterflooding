@@ -113,6 +113,6 @@ test_that("demo field: opportunities, clusters, reconciliation and store work en
   store_set_state(con, "E|P02|A", status = "validated_candidate", checks = c("a", "b"))
   expect_equal(store_checks(con, "E|P02|A"), c("a", "b"))
   s2 <- apply_states(op$summary, store_states(con))
-  if ("E|P02|A" %in% s2$key) expect_equal(as.character(s2[key == "E|P02|A", status]), "validated_candidate")
+  if ("E|P02|A" %in% s2$key) expect_equal(as.character(s2[key == "E|P02|A", status]), "candidate")
   DBI::dbDisconnect(con)
 })

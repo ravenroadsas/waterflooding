@@ -32,9 +32,13 @@ lens_colors <- c(PATTERN = "#a78bfa", WELL = "#22d3ee", OTHER = "#fbbf24")
 lens_group <- function(l) ifelse(l %in% c("PATTERN", "WELL"), l, "OTHER")
 pattern_rule_action <- c(A = "ISOLATE", B = "STIM_INJ", C = "LIFT", D = "SUPPORT_INJ", E = "CONFORMANCE", F = "RATE")
 
-status_levels <- c("screening_only", "candidate", "validated_candidate", "executed", "outcome_evaluated", "dismissed")
-status_colors <- c(screening_only = "#fbbf24", candidate = "#22d3ee", validated_candidate = "#34d399",
-                   executed = "#a78bfa", outcome_evaluated = "#e2e8f0", dismissed = "#64748b")
+# Opportunity flow: screening -> candidate -> in a job -> executed (dismissed aside). The engine sets
+# screening / candidate; an engineer can promote a screening opportunity or dismiss one; "in a job" and
+# "executed" are read from the jobs.
+status_levels <- c("screening_only", "candidate", "in_job", "executed", "dismissed")
+status_labels <- c(screening_only = "screening", candidate = "candidate", in_job = "in a job", executed = "executed", dismissed = "dismissed")
+status_colors <- c(screening_only = "#fbbf24", candidate = "#22d3ee", in_job = "#a78bfa", executed = "#34d399", dismissed = "#64748b")
+open_statuses <- c("screening_only", "candidate")
 families <- c(M = "maturity", V = "velocity", U = "unit / vertical", S = "spatial", O = "operations")
 no_fam <- function() c(M = FALSE, V = FALSE, U = FALSE, S = FALSE, O = FALSE)
 
@@ -813,20 +817,28 @@ store_migrate_keys <- function(con, summary) {
   invisible(n)
 }
 
-# Combine engine status with the engineers' decisions from the store.
-apply_states <- function(summ, states) {
+# Status of each opportunity: engine status, the engineers' decisions (promote, dismiss) and the jobs.
+# A job that is proposed or approved puts its opportunities "in a job"; an executed or evaluated job
+# makes them "executed". Statuses of earlier versions map onto this flow.
+apply_states <- function(summ, states, jobs_map = NULL) {
   if (!nrow(summ)) return(summ)
   s <- data.table::copy(summ)
-  s[, status := auto_status]
+  s[, `:=`(status = auto_status, notes = NA_character_, job_id = NA_integer_, job_status = NA_character_)]
   if (!is.null(states) && nrow(states)) {
-    s[states, on = "key", `:=`(status = i.status, notes = i.notes)]
-    s[is.na(status), status := auto_status]
+    s[states, on = "key", `:=`(stored = i.status, notes = i.notes)]
+    s[stored %in% c("candidate", "validated_candidate") & status == "screening_only", status := "candidate"]
+    s[stored %in% c("executed", "outcome_evaluated"), status := "executed"]
+    s[stored == "dismissed", status := "dismissed"]
+    s[, stored := NULL]
   }
-  if (!"notes" %in% names(s)) s[, notes := NA_character_]
+  if (!is.null(jobs_map) && nrow(jobs_map)) {
+    s[jobs_map, on = c(key = "opp_key"), `:=`(job_id = i.job_id, job_status = i.job_status)]
+    s[job_status %in% c("proposed", "approved"), status := "in_job"]
+    s[job_status %in% c("executed", "evaluated"), status := "executed"]
+  }
   s[, status := factor(status, levels = status_levels)]
   s[]
 }
-
 # ---- conformance ranking, method 1: points against the area average -------------------------
 conformance_ranking <- function(sn) {
   f <- sn[flooded == TRUE]

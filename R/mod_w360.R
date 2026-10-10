@@ -34,7 +34,7 @@ w360_server <- function(input, output, session, ctx, wsel) {
       badge(drive, if (drive == "primary") "#94a3b8" else "#60a5fa"),
       if (nrow(x)) badge(paste("patterns", paste(sprintf("%s %s", x$pattern, fmt_pct(x$coeff, 0)), collapse = " · ")), "#a78bfa"),
       if (nrow(ops())) badge(sprintf("%d opportunities", nrow(ops())), pal$accent),
-      if (nrow(ops()[as.character(status) %in% c("screening_only", "candidate", "validated_candidate")]))
+      if (nrow(ops()[as.character(status) %in% jobable_statuses]))
         shiny::actionButton("w360_job", "Build a job on this well", class = "btn-sm btn-primary"),
       htmltools::div(class = "wf-kpi-row compact",
         kpi("Oil (6 m)", fmt_int(if (!is.null(last)) mean(last$bopd) else NA), "bopd"),
@@ -57,7 +57,7 @@ w360_server <- function(input, output, session, ctx, wsel) {
     p
   })
   shiny::observeEvent(input$w360_job, {
-    s <- ops()[as.character(status) %in% c("screening_only", "candidate", "validated_candidate")]
+    s <- ops()[as.character(status) %in% jobable_statuses]
     shiny::removeModal(); ctx$job_req(list(well = wsel(), pre = character(), t = Sys.time()))
   })
   output$w360_strip <- plotly::renderPlotly(plot_interval_strip(ivw()))

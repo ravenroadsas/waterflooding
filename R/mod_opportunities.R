@@ -1,11 +1,31 @@
-# STEP 3 - OPPORTUNITIES (well interventions) --------------------------------------------------
+# STEP 3 - IDENTIFIED OPPORTUNITIES and STEP 4 - MANAGE OPPORTUNITIES -----------------------------
+#
+# Identify (automatic): on every data load the app runs the pattern rules, the single-well and vertical
+# analyses and the other analyses; each finding is an opportunity on a well. Manage (engineer): review,
+# promote, dismiss, and add candidates to a job. Jobs are approved and tracked in step 5.
+
+identify_ui <- function() {
+  htmltools::tagList(
+    htmltools::div(class = "wf-section-intro",
+      htmltools::div(class = "wf-step", "Step 3 of 5 · automatic"), htmltools::h2("Identified opportunities"),
+      htmltools::p("The app identifies opportunities on every data load and when the as-of date changes. Each one is an intervention on a well",
+                   "(action · well · unit · interval). The tabs show the analyses behind them; the opportunities are managed in step 4.")),
+    shiny::uiOutput("id_summary"),
+    bslib::navset_card_underline(id = "id_tabs",
+      bslib::nav_panel("Vertical analysis", value = "wb", workbench_ui()),
+      bslib::nav_panel("Conformance ranking", value = "rank",
+        bslib::layout_columns(col_widths = c(7, 5),
+          htmltools::div(htmltools::h6(class = "wf-h6", "Method 1: points against the area average (higher = stronger conformance candidate)"), DT::DTOutput("opp_rank")),
+          htmltools::div(htmltools::h6(class = "wf-h6", "Method 2: volumetric efficiency ratio vs Loss"), plotly::plotlyOutput("opp_m2", height = "420px")))),
+      bslib::nav_panel("Rules & weights", value = "rules", shiny::uiOutput("opp_rules"))))
+}
 
 opportunities_ui <- function() {
   htmltools::tagList(
     htmltools::div(class = "wf-section-intro",
-      htmltools::div(class = "wf-step", "Step 3 of 4"), htmltools::h2("Opportunities"),
-      htmltools::p("Every opportunity is a job on a well (action · well · unit · interval). Pattern rules, the single-well analysis and other",
-                   "analyses add evidence to the same target. A single family stays at screening_only; engineers confirm validation items and move the status forward.")),
+      htmltools::div(class = "wf-step", "Step 4 of 5 · engineer"), htmltools::h2("Manage opportunities"),
+      htmltools::p("Screening (one kind of evidence) → candidate (two or more, including maturity or velocity; or promoted by an engineer) →",
+                   "in a job → executed. Only candidates go into a job; the others stay as identified. Triggered wells are flagged so their opportunities can be done in one visit.")),
     shiny::uiOutput("opp_funnel"),
     # loads the date-picker assets used by the job modal
     htmltools::div(style = "display:none", shiny::dateInput("opp_date_assets", NULL)),
@@ -25,17 +45,12 @@ opportunities_ui <- function() {
         htmltools::p(class = "wf-muted small", "Oil in the first 12 months (Base profile, or an indicative 12 months from the gain rate) against the water lifted in the same period. Size = priority score. Click a point to open its record."),
         plotly::plotlyOutput("opp_bubble", height = "520px")),
       bslib::nav_panel("Board", value = "board", shiny::uiOutput("opp_board")),
-      bslib::nav_panel("ADPERF workbench", value = "wb", workbench_ui()),
-      bslib::nav_panel("Conformance ranking", value = "rank",
-        bslib::layout_columns(col_widths = c(7, 5),
-          htmltools::div(htmltools::h6(class = "wf-h6", "Method 1: points against the area average (higher = stronger conformance candidate)"), DT::DTOutput("opp_rank")),
-          htmltools::div(htmltools::h6(class = "wf-h6", "Method 2: volumetric efficiency ratio vs Loss"), plotly::plotlyOutput("opp_m2", height = "420px")))),
-      bslib::nav_panel("Rules & weights", value = "rules", shiny::uiOutput("opp_rules")))
+      bslib::nav_panel(shiny::uiOutput("opp_trig_tab", inline = TRUE), value = "trig", shiny::uiOutput("opp_triggers")))
   )
 }
 
 opportunities_server <- function(input, output, session, ctx) {
-  status_filter <- shiny::reactiveVal(c("screening_only", "candidate", "validated_candidate", "executed", "outcome_evaluated"))
+  status_filter <- shiny::reactiveVal(c("screening_only", "candidate", "in_job", "executed"))
 
   # ---- filters ----
   shiny::observe({
@@ -56,7 +71,7 @@ opportunities_server <- function(input, output, session, ctx) {
     s <- ctx$opps()$summary
     n <- if (nrow(s)) table(factor(as.character(s$status), status_levels)) else stats::setNames(rep(0, length(status_levels)), status_levels)
     htmltools::div(class = "wf-funnel", lapply(status_levels, function(k)
-      shiny::actionLink(paste0("opp_f_", k), label = htmltools::tagList(htmltools::div(class = "l", k), htmltools::tags$b(n[[k]])),
+      shiny::actionLink(paste0("opp_f_", k), label = htmltools::tagList(htmltools::div(class = "l", paste0(status_labels[[k]], if (k %in% c("in_job", "executed")) " (from jobs)" else "")), htmltools::tags$b(n[[k]])),
         class = paste("wf-fs", if (length(status_filter()) == 1 && status_filter() == k) "on"), style = sprintf("--fc:%s", status_colors[[k]]))),
       shiny::actionLink("opp_f_all", "show all", class = "wf-fs-all"))
   })
@@ -65,6 +80,8 @@ opportunities_server <- function(input, output, session, ctx) {
     shiny::observeEvent(input[[paste0("opp_f_", kk)]], { status_filter(kk); bslib::nav_select("opp_tabs", "cand") }, ignoreInit = TRUE)
   })
   shiny::observeEvent(input$opp_f_all, status_filter(status_levels))
+  trig <- shiny::reactive(ctx$triggers())
+  trig_wells <- shiny::reactive(unique(trig()$well))
 
   filtered <- shiny::reactive({
     s <- ctx$opps()$summary
@@ -101,11 +118,13 @@ opportunities_server <- function(input, output, session, ctx) {
     s <- listed()
     if (!nrow(s)) return(dt_dark(data.table::data.table(Message = "No opportunities for this filter")))
     first <- !duplicated(s$well)
-    d <- s[, .(Well = ifelse(first, sprintf("<b>%s</b><br><small>%s · %s</small>", well, tolower(data.table::fcoalesce(well_type, "")), drive), ""),
+    tw <- trig_wells()
+    d <- s[, .(Well = ifelse(first, sprintf("<b>%s</b>%s<br><small>%s · %s</small>", well, ifelse(well %in% tw, ' <span class="wf-trig" title="well triggered">⚑</span>', ""),
+                                            tolower(data.table::fcoalesce(well_type, "")), drive), ""),
                Action = sprintf('<span class="wf-act" style="--tc:%s">%s</span> %s<br><small>%s</small>', action_color(action), action,
                                 ifelse(is.na(sand), "", paste("unit", sand, ifelse(is.na(interval), "", interval))), action_label(action)),
                Lenses = vapply(lenses, lens_chips, ""), Evidence = vapply(families, fam_chips, ""),
-               Status = badge_html(as.character(status), status_colors[as.character(status)]),
+               Status = badge_html(paste0(status_labels[as.character(status)], ifelse(is.na(job_id), "", paste0(" #", job_id))), status_colors[as.character(status)]),
                `Gain bopd` = round(gain), Score = score)]
     dt_dark(d, escape = FALSE, pageLength = 14, dom = "tip", ordering = FALSE)
   })
@@ -159,13 +178,12 @@ opportunities_server <- function(input, output, session, ctx) {
       htmltools::div(class = "wf-rec-head",
         htmltools::span(class = "wf-act big", style = sprintf("--tc:%s", action_color(r$action)), r$action),
         htmltools::h4(sprintf("%s · %s%s%s", action_label(r$action), r$well, if (is.na(r$sand)) "" else paste(" · unit", r$sand), if (is.na(r$interval)) "" else paste(" ·", r$interval))),
-        badge(as.character(row$status), status_colors[[as.character(row$status)]]),
+        badge(paste0(status_labels[[as.character(row$status)]], if (!is.na(row$job_id)) sprintf(" · job #%s (%s)", row$job_id, row$job_status) else ""), status_colors[[as.character(row$status)]]),
+        if (r$well %in% trig_wells()) badge(paste("⚑", paste(trig()[well == r$well, trigger], collapse = "; ")), pal$crit),
         badge(sprintf("evidence %d of 5: %s", row$n_fam, row$families), "#fbbf24"),
         badge(row$drive %||% "primary", if (identical(row$drive, "primary")) "#94a3b8" else "#60a5fa"),
         htmltools::HTML(lens_chips(row$lenses)),
         htmltools::span(class = "wf-muted small", paste(stats::na.omit(c(row$orgunit, row$contract, row$field, row$structure)), collapse = " › ")),
-        { jb <- store_interventions(ctx$con); jb <- if (nrow(jb)) jb[opp_key == key] else jb
-          if (nrow(jb)) badge(sprintf("in %s", jb$job[nrow(jb)]), "#a78bfa") },
         { n_open <- ctx$opps()$summary[well == r$well & as.character(status) %in% open_statuses, .N]
           if (n_open > 1) badge(sprintf("%d open opportunities on %s", n_open, r$well), "#94a3b8") },
         shiny::actionLink("opp_openw360", "Well 360 →", class = "wf-link"),
@@ -189,7 +207,7 @@ opportunities_server <- function(input, output, session, ctx) {
       DT::DTOutput("opp_evidence"),
       bslib::layout_columns(col_widths = c(6, 6),
         htmltools::div(class = "wf-blk",
-          htmltools::div(class = "l", "Validation before execution"),
+          htmltools::div(class = "l", "Checks before adding to a job"),
           htmltools::div(class = "wf-auto-checks", lapply(names(ac), function(n) htmltools::div(
             htmltools::span(class = if (identical(ac[[n]], "ok") || grepl("profiles", ac[[n]])) "ok" else "warn", if (identical(ac[[n]], "ok")) "✓" else "•"),
             htmltools::span(paste0(n, ": ", ac[[n]]))))),
@@ -199,12 +217,17 @@ opportunities_server <- function(input, output, session, ctx) {
           shiny::textAreaInput("opp_notes", NULL, value = store_get_state(ctx$con, key)$notes %||% "", rows = 3, width = "100%"),
           shiny::actionButton("opp_save_notes", "Save notes", class = "btn-sm btn-outline-info"))),
       htmltools::div(class = "wf-btn-row",
-        shiny::actionButton("opp_validate", "Mark validated", class = "btn-sm btn-primary"),
-        shiny::actionButton("opp_log", "Propose job on this well", class = "btn-sm btn-outline-info"),
-        shiny::actionButton("opp_outcome", "Record outcome", class = "btn-sm btn-outline-info"),
-        shiny::actionButton("opp_dismiss", "Dismiss with reason", class = "btn-sm btn-outline-light"),
-        shiny::actionButton("opp_reset", "Reset status", class = "btn-sm btn-outline-light"),
-        htmltools::span(class = "wf-muted small", "Validating freezes the forecast used for the decision; the job is later compared with it.")),
+        if (as.character(row$status) == "screening_only") shiny::actionButton("opp_promote", "Promote to candidate", class = "btn-sm btn-primary"),
+        if (as.character(row$status) == "candidate") shiny::actionButton("opp_log", "Add to a job on this well", class = "btn-sm btn-primary"),
+        if (as.character(row$status) %in% c("screening_only", "candidate")) shiny::actionButton("opp_dismiss", "Dismiss with reason", class = "btn-sm btn-outline-light"),
+        if (as.character(row$status) == "dismissed") shiny::actionButton("opp_reset", "Restore", class = "btn-sm btn-outline-light"),
+        if (as.character(row$status) %in% c("in_job", "executed") && !is.na(row$job_id)) shiny::actionLink("opp_gojob", sprintf("Open job #%s in Manage jobs →", row$job_id), class = "wf-link"),
+        htmltools::span(class = "wf-muted small", switch(as.character(row$status),
+          screening_only = "One kind of evidence so far: promote it with a reason, or wait for more evidence.",
+          candidate = "Add it to a job with the other candidates of this well; the rest stay as identified.",
+          in_job = "Waiting in a job; approval and execution happen in Manage jobs.",
+          executed = "Executed in a job; the result is evaluated on the job (the well's response).",
+          dismissed = "Dismissed; restore it to bring it back."))),
       htmltools::div(class = "wf-ai",
         htmltools::div(class = "l", "AI draft of the decision record"),
         if (ai_available()) shiny::actionButton("opp_ai", if (is.null(ai)) "Draft with AI" else "Redraft with AI", class = "btn-sm btn-outline-info")
@@ -276,31 +299,29 @@ opportunities_server <- function(input, output, session, ctx) {
   shiny::observeEvent(input$opp_open360, ctx$open_p360(sel()$row$pattern))
   shiny::observeEvent(input$opp_openw360, ctx$open_w360(sel()$rec$well))
 
-  shiny::observeEvent(input$opp_validate, {
-    s <- sel(); v <- s$rec$text$validation
-    if (!all(v %in% input$opp_checks)) { shiny::showNotification("Confirm every validation item first", type = "warning"); return() }
-    if (s$row$n_fam < 2) { shiny::showNotification("Screening signals need a second family of evidence before validation", type = "warning"); return() }
-    pr <- if (identical(s$row$gain_src, "PROFILE")) sel_profile() else NULL
-    store_freeze_forecast(ctx$con, s$rec$key, pr)
-    store_set_state(ctx$con, s$rec$key, status = "validated_candidate", checks = input$opp_checks,
-                    comment = paste("all validation items confirmed", if (!is.null(pr)) "; Bajo/Base/Alto forecast frozen" else ""))
-    bump()
+  shiny::observeEvent(input$opp_promote, shiny::showModal(shiny::modalDialog(title = "Promote to candidate",
+    htmltools::p(class = "wf-muted", "The engine has one kind of evidence for this opportunity. Say why it should be treated as a candidate."),
+    shiny::textAreaInput("opp_promote_reason", "Reason", rows = 3, width = "100%"),
+    footer = htmltools::tagList(shiny::modalButton("Cancel"), shiny::actionButton("opp_promote_ok", "Promote", class = "btn-primary")))))
+  shiny::observeEvent(input$opp_promote_ok, {
+    if (!nzchar(trimws(input$opp_promote_reason %||% ""))) { shiny::showNotification("Give a reason", type = "warning"); return() }
+    store_set_state(ctx$con, key_now(), status = "candidate", user = ctx$user(), comment = paste("promoted:", input$opp_promote_reason)); shiny::removeModal(); bump()
   })
-  shiny::observeEvent(input$opp_reset, { store_set_state(ctx$con, key_now(), status = sel()$row$auto_status, comment = "reset"); bump() })
+  shiny::observeEvent(input$opp_gojob, { ctx$job_focus(sel()$row$job_id); bslib::nav_select("nav", "jobs") })
+  shiny::observeEvent(input$opp_reset, { store_set_state(ctx$con, key_now(), status = sel()$row$auto_status, user = ctx$user(), comment = "restored"); bump() })
 
   shiny::observeEvent(input$opp_dismiss, shiny::showModal(shiny::modalDialog(title = "Dismiss opportunity",
     shiny::textAreaInput("opp_dismiss_reason", "Reason", rows = 3, width = "100%"),
     footer = htmltools::tagList(shiny::modalButton("Cancel"), shiny::actionButton("opp_dismiss_ok", "Dismiss", class = "btn-primary")))))
   shiny::observeEvent(input$opp_dismiss_ok, {
-    store_set_state(ctx$con, key_now(), status = "dismissed", notes = input$opp_dismiss_reason, comment = input$opp_dismiss_reason)
+    store_set_state(ctx$con, key_now(), status = "dismissed", notes = input$opp_dismiss_reason, user = ctx$user(), comment = input$opp_dismiss_reason)
     shiny::removeModal(); bump()
   })
 
   # ---- job builder: a job is the combination of the opportunities the engineer picks on one well ----
   # Only the picked opportunities move to executed; every other opportunity on the well stays as identified.
-  open_statuses <- c("screening_only", "candidate", "validated_candidate")
   job_choices <- function(w) {
-    s <- ctx$opps()$summary[well == w & as.character(status) %in% open_statuses]
+    s <- ctx$opps()$summary[well == w & as.character(status) %in% jobable_statuses]
     s[order(-score)]
   }
   # forecast of one opportunity: the one frozen at validation, else the current profile
@@ -313,11 +334,13 @@ opportunities_server <- function(input, output, session, ctx) {
   }
   show_job_modal <- function(w, pre = character()) {
     s <- job_choices(w)
-    if (!nrow(s)) { shiny::showNotification(sprintf("No open opportunities on %s", w), type = "warning"); return() }
+    if (!nrow(s)) { shiny::showNotification(sprintf("No candidates on %s (screening opportunities are promoted first)", w), type = "warning"); return() }
+    n_scr <- ctx$opps()$summary[well == w & as.character(status) == "screening_only", .N]
     lab <- sprintf("%s %s · %s · %s bopd%s", s$action, ifelse(is.na(s$sand), "", paste("unit", s$sand, data.table::fcoalesce(s$interval, ""))),
                    as.character(s$status), fmt_int(s$gain), ifelse(s$gain_src %in% "PROFILE", " (profile)", ""))
     shiny::showModal(shiny::modalDialog(title = sprintf("Propose a job on %s", w), easyClose = TRUE, size = "l",
-      htmltools::p(class = "wf-muted small", sprintf("%d open opportunities on this well. Tick the ones this job will execute; the others stay as identified. A lead approves the job in Jobs.", nrow(s))),
+      htmltools::p(class = "wf-muted small", sprintf("%d candidates on this well%s. Tick the ones this job will execute; the others stay as identified. A lead approves the job in Manage jobs.",
+                                                     nrow(s), if (n_scr) sprintf(" (%d screening opportunities are not offered until promoted)", n_scr) else "")),
       shiny::checkboxGroupInput("iv_keys", NULL, choices = stats::setNames(s$key, lab), selected = intersect(pre, s$key), width = "100%"),
       shiny::uiOutput("iv_preview"),
       plotly::plotlyOutput("iv_preview_plot", height = "230px"),
@@ -361,21 +384,6 @@ opportunities_server <- function(input, output, session, ctx) {
     shiny::showNotification(sprintf("Job #%s proposed with %d opportunit%s; a lead approves it in Jobs", id, length(keys), if (length(keys) > 1) "ies" else "y"))
   })
 
-  shiny::observeEvent(input$opp_outcome, {
-    r <- sel()$rec
-    shiny::showModal(shiny::modalDialog(title = "Record outcome", easyClose = TRUE,
-      htmltools::p(class = "wf-muted", paste("Expected:", r$text$outcome)),
-      shiny::radioButtons("oc_verdict", "Verdict", c("above Alto", "within range", "below Bajo", "met", "partly met", "not met"), inline = TRUE),
-      shiny::textAreaInput("oc_actual", "Observed response", rows = 3, width = "100%"),
-      footer = htmltools::tagList(shiny::modalButton("Cancel"), shiny::actionButton("oc_ok", "Save", class = "btn-primary"))))
-  })
-  shiny::observeEvent(input$oc_ok, {
-    r <- sel()$rec
-    store_add_outcome(ctx$con, r$key, input$oc_verdict, r$text$outcome, input$oc_actual, "")
-    store_set_state(ctx$con, r$key, status = "outcome_evaluated", comment = input$oc_verdict)
-    shiny::removeModal(); bump()
-  })
-
   shiny::observeEvent(input$opp_ai, {
     s <- sel(); r <- s$rec
     pr <- if (!is.na(s$row$pattern)) ctx$snap()[entity == s$row$pattern] else NULL
@@ -413,12 +421,12 @@ opportunities_server <- function(input, output, session, ctx) {
     if (!nrow(s)) return(htmltools::div(class = "wf-muted", "No opportunities"))
     htmltools::div(class = "wf-board", lapply(status_levels, function(k) {
       x <- s[as.character(status) == k]
-      htmltools::div(class = "wf-col", htmltools::div(class = "wf-col-h", style = sprintf("--fc:%s", status_colors[[k]]), sprintf("%s (%d)", k, nrow(x))),
+      htmltools::div(class = "wf-col", htmltools::div(class = "wf-col-h", style = sprintf("--fc:%s", status_colors[[k]]), sprintf("%s%s (%d)", status_labels[[k]], if (k %in% c("in_job", "executed")) " · from jobs" else "", nrow(x))),
         lapply(seq_len(nrow(x)), function(i) htmltools::tags$a(class = "wf-bcard", href = "#",
           onclick = sprintf("Shiny.setInputValue('board_pick', '%s', {priority: 'event'}); return false;", x$key[i]),
           htmltools::span(class = "wf-act", style = sprintf("--tc:%s", action_color(x$action[i])), x$action[i]),
           htmltools::span(target_txt(x[i])),
-          htmltools::span(class = "wf-muted small", paste("score", x$score[i])))))
+          htmltools::span(class = "wf-muted small", paste0("score ", x$score[i], if (!is.na(x$job_id[i])) paste0(" · job #", x$job_id[i]) else "", if (x$well[i] %in% trig_wells()) " · ⚑" else "")))))
     }))
   })
   shiny::observeEvent(input$board_pick, { ctx$sel_opp(input$board_pick); bslib::nav_select("opp_tabs", "cand") })
@@ -446,6 +454,49 @@ opportunities_server <- function(input, output, session, ctx) {
       annotations = list(a((xl + st$loss_high) / 2, 0.05, "thief zone", pal$warn), a((st$loss_high + xm) / 2, 0.05, "reservoir & well", pal$crit),
                          a((st$loss_high + xm) / 2, ym * 0.96, "out of zone / area", pal$warn), a((xl + st$loss_high) / 2, ym * 0.96, "efficient", pal$ok))), "plotly_click")
   })
+
+  # ---- identified: what each analysis found ----
+  output$id_summary <- shiny::renderUI({
+    s <- ctx$opps()$summary
+    if (!nrow(s)) return(htmltools::div(class = "wf-muted", "No opportunities identified at this date."))
+    r <- s[, .(rule = unlist(strsplit(rules, ", "))), by = .(key, status = as.character(status))]
+    lab <- c(stats::setNames(paste(names(opp_types), opp_types), names(opp_types)), stats::setNames(paste(names(well_rules), well_rules), names(well_rules)))
+    t <- r[, .(found = .N, screening = sum(status == "screening_only"), candidates = sum(!status %in% c("screening_only", "dismissed"))), by = rule]
+    t[, label := ifelse(rule %in% names(lab), lab[rule], paste(rule, "(other analysis)"))]
+    t[, lens := ifelse(rule %in% names(opp_types), "PATTERN", ifelse(rule %in% names(well_rules), "WELL", "OTHER"))]
+    data.table::setorder(t, lens, rule)
+    htmltools::div(class = "wf-id-grid", lapply(seq_len(nrow(t)), function(i) htmltools::div(class = "wf-id-card", style = sprintf("--lc:%s", lens_colors[[t$lens[i]]]),
+      htmltools::div(class = "l", t$label[i]), htmltools::tags$b(t$found[i]),
+      htmltools::span(class = "wf-muted small", sprintf("%d past screening · %d screening", t$candidates[i], t$screening[i])))),
+      htmltools::div(class = "wf-id-card go", shiny::actionLink("id_go_manage", label = htmltools::tagList(htmltools::div(class = "l", "Next: step 4"), htmltools::tags$b("Manage →"),
+        htmltools::span(class = "wf-muted small", sprintf("%d opportunities on %d wells", nrow(s), data.table::uniqueN(s$well)))))))
+  })
+  shiny::observeEvent(input$id_go_manage, bslib::nav_select("nav", "opportunities"))
+
+  # ---- triggers: wells to intervene at once, with all their open opportunities ----
+  output$opp_trig_tab <- shiny::renderUI({ n <- length(trig_wells()); htmltools::span("Triggers", if (n) htmltools::span(class = "wf-trig-n", n)) })
+  trig_table <- shiny::reactive({
+    t <- trig(); s <- ctx$opps()$summary
+    if (!nrow(t) || !nrow(s)) return(data.table::data.table())
+    t[, .(triggers = paste(trigger, collapse = "; ")), by = well][, {
+      o <- s[well == .BY$well & as.character(status) %in% c(open_statuses, "in_job")]
+      .(triggers = triggers, candidates = sum(o$status == "candidate"), screening = sum(o$status == "screening_only"), in_job = sum(o$status == "in_job"),
+        opportunities = if (nrow(o)) paste(sprintf("%s %s", o$action, data.table::fcoalesce(o$interval, "")), collapse = ", ") else "none identified")
+    }, by = well]
+  })
+  output$opp_triggers <- shiny::renderUI({
+    htmltools::tagList(
+      htmltools::p(class = "wf-muted", "A trigger makes it worth intervening the well now. Every open opportunity of a triggered well is flagged (⚑) in the portfolio and the board;",
+                   "the engineer decides which ones go into the job."),
+      DT::renderDT(dt_dark(trigger_rules(ctx$settings()), dom = "t", ordering = FALSE)),
+      htmltools::h6(class = "wf-h6", "Triggered wells · select a row to build a job on that well"),
+      DT::DTOutput("opp_trig_wells"))
+  })
+  output$opp_trig_wells <- DT::renderDT({
+    x <- trig_table(); if (!nrow(x)) return(dt_dark(data.table::data.table(Message = "No well is triggered at this date"), dom = "t"))
+    dt_dark(x[, .(Well = well, Trigger = triggers, Candidates = candidates, Screening = screening, `In a job` = in_job, `Open opportunities` = opportunities)], dom = "t", ordering = FALSE)
+  })
+  shiny::observeEvent(input$opp_trig_wells_rows_selected, { x <- trig_table(); w <- x$well[input$opp_trig_wells_rows_selected]; if (length(w)) show_job_modal(w, character()) })
 
   output$opp_rules <- shiny::renderUI({
     st <- ctx$settings()

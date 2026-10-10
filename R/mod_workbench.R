@@ -20,11 +20,11 @@ workbench_ui <- function() {
       plotly::plotlyOutput("wb_oil", height = "260px"), plotly::plotlyOutput("wb_wat", height = "260px"), plotly::plotlyOutput("wb_fc", height = "260px")),
     bslib::layout_columns(col_widths = c(5, 7),
       htmltools::div(htmltools::h6(class = "wf-h6", "Cost (standard cost lookup by job type and well depth)"), DT::DTOutput("wb_cost")),
-      htmltools::div(htmltools::h6(class = "wf-h6", "Propose the job"),
+      htmltools::div(htmltools::h6(class = "wf-h6", "Build the job · only candidates can be added; it is approved in step 5"),
         shiny::checkboxInput("wb_als", "Change the artificial lift in this rig visit", FALSE),
         shiny::textInput("wb_name", "Job name (optional)", "", width = "100%"),
         shiny::textAreaInput("wb_notes", "Notes for the lead", rows = 2, width = "100%"),
-        shiny::actionButton("wb_propose", "Propose job for approval", class = "btn-primary btn-sm"),
+        shiny::actionButton("wb_propose", "Add to a new job (for approval)", class = "btn-primary btn-sm"),
         shiny::uiOutput("wb_msg"))))
 }
 
@@ -40,8 +40,7 @@ workbench_server <- function(input, output, session, ctx) {
     shiny::updateSelectizeInput(session, "wb_well", choices = ws, selected = w0)
   })
   wb <- shiny::reactive({ shiny::req(input$wb_well); well_workbench(ctx$res(), ctx$opps(), input$wb_well, ctx$asof()) })
-  open_st <- c("screening_only", "candidate", "validated_candidate")
-  wopps <- shiny::reactive({ s <- ctx$opps()$summary; if (!nrow(s)) s else s[well == input$wb_well & as.character(status) %in% open_st] })
+  wopps <- shiny::reactive({ s <- ctx$opps()$summary; if (!nrow(s)) s else s[well == input$wb_well & as.character(status) %in% jobable_statuses] })
   # default selection: the agreed candidates with the best potential (up to 3) and the worst offender
   shiny::observeEvent(wb(), {
     w <- wb(); o <- wopps(); k <- character()
@@ -141,7 +140,7 @@ workbench_server <- function(input, output, session, ctx) {
                    error = function(e) { shiny::showNotification(conditionMessage(e), type = "error"); NULL })
     if (is.null(id)) return()
     ctx$store_tick(ctx$store_tick() + 1)
-    output$wb_msg <- shiny::renderUI(htmltools::div(class = "wf-muted small", sprintf("Job #%s proposed by %s. It is waiting for a lead's approval in Jobs.", id, ctx$user())))
+    output$wb_msg <- shiny::renderUI(htmltools::div(class = "wf-muted small", sprintf("Job #%s proposed by %s. It is waiting for a lead's approval in Manage jobs.", id, ctx$user())))
     shiny::showNotification(sprintf("Job #%s proposed for approval", id))
   })
 }
